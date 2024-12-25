@@ -1,0 +1,194 @@
+body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+
+* {
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+}
+
+.fs-6 {
+    font-size: 6px !important
+}
+
+.fs-7 {
+    font-size: 7px !important
+}
+
+.fs-8 {
+    font-size: 8px !important
+}
+
+.fs-9 {
+    font-size: 10px !important
+}
+
+.fs-10 {
+    font-size: 10px !important
+}
+
+.fs-11 {
+    font-size: 11px !important
+}
+
+.fs-12 {
+    font-size: 12px !important
+}
+
+.fs-13 {
+    font-size: 13px !important
+}
+
+.fs-14 {
+    font-size: 14px !important
+}
+
+.fs-15 {
+    font-size: 15px !important
+}
+
+.fs-16 {
+    font-size: 16px !important
+}
+
+.fs-17 {
+    font-size: 17px !important
+}
+
+.fs-18 {
+    font-size: 18px !important;
+    line-height: 26px
+}
+
+.fs-19 {
+    font-size: 19px !important
+}
+
+.fs-20 {
+    font-size: 20px !important;
+    line-height: 30px
+}
+
+.fs-21 {
+    font-size: 21px !important
+}
+
+.fs-22 {
+    font-size: 22px !important
+}
+
+.fs-23 {
+    font-size: 23px !important
+}
+
+.fs-24 {
+    font-size: 24px !important
+}
+
+.fs-25 {
+    font-size: 25px !important
+}
+
+.user-img {
+    height: 90px;
+    width: 90px;
+    border: 2px dashed #bfbfbf;
+}
+
+.logo {
+    width: 120px;
+}
+
+#print-table {
+    width: 198mm;
+    margin: 10px auto 10px;
+    background-color: #fff;
+    -webkit-border-radius: 3px;
+    -moz-border-radius: 3px;
+    border-radius: 3px;
+    -webkit-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+    -moz-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+    -webkit-print-color-adjust: exact
+}
+
+.wrapper {
+    height: 100%;
+    padding: 5px 15px 15px 15px;
+    background-color: #fff;
+    font-size: 13px;
+}
+
+.body-content {
+    position: relative;
+    height: 100%;
+    padding-bottom: 58px
+}
+
+.table {
+    border-color: #afafaf;
+}
+
+.table thead {
+    background: #00a07a;
+    color: #fff;
+}
+
+.table tbody td {
+    width: 25%;
+    padding: 0.2rem .5rem;
+}
+
+.table thead tr th {
+    padding: 0.3rem 0.5rem;
+}
+
+.border-right {
+    border-right: 8px solid #fff;
+}
+
+.border-left {
+    border-left: 16px solid #fff;
+}
+
+.footer-bg {
+    background-color: #00a07a;
+    height: 43px;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    position: absolute;
+    width: 100%;
+    align-items: center;
+    display: flex;
+    justify-content: space-evenly;
+    color: #fff;
+}
+
+@page {
+    size: A4;
+    margin: 0;
+}
+
+@media print {
+
+    html,
+    body {
+        width: 210mm;
+        height: 297mm;
+    }
+
+    .page {
+        margin: 0;
+        border: initial;
+        border-radius: initial;
+        width: initial;
+        min-height: initial;
+        box-shadow: initial;
+        background: initial;
+        page-break-after: always;
+    }
+}

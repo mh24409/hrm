@@ -1,0 +1,7 @@
+@media print {
+    tr.cv {
+
+        -webkit-print-color-adjust: exact;
+    }
+
+}

@@ -1,0 +1,92 @@
+.print-table-border td:last-child,
+.print-table-border th:last-child,
+.print-table-border tbody:last-child,
+.print-table-border thead:last-child,
+.print-table-border tfoot:last-child{
+    border-right: 1px solid #000 !important;
+    background-color: transparent;
+}
+
+.print-table-border tfoot th {
+    border-bottom: 1px solid #000 !important;
+}
+.print-table-border tfoot th:last-child {
+    border-bottom: 1px solid #000 !important;
+}
+
+.print-table-border td,
+.print-table-border th,
+.print-table-border tbody,
+.print-table-border thead{
+    border-top: 1px solid #000 !important;
+    border-left: 1px solid #000 !important;
+    font-size: 12px !important;
+    border-collapse: collapse;
+    padding: 4px;
+}
+
+.fs-6 {
+	font-size: 6px !important
+}
+.fs-7 {
+	font-size: 7px !important
+}
+.fs-8 {
+	font-size: 8px !important
+}
+.fs-9 {
+	font-size: 9px !important
+}
+.fs-10 {
+	font-size: 10px !important
+}
+
+.fs-11 {
+	font-size: 11px !important
+}
+
+.fs-12 {
+	font-size: 12px !important
+}
+
+.fs-13 {
+	font-size: 13px !important
+}
+
+.fs-14 {
+	font-size: 14px !important
+}
+
+.fs-15 {
+	font-size: 15px !important
+}
+.vertical-align {
+    vertical-align: middle !important;
+}
+
+@page {
+    size: A4;
+    margin: 20px;
+    padding: 20px;
+}
+
+@media print {
+
+    html,
+    body {
+        width: 210mm;
+        height: 297mm;
+    }
+
+    .page {
+        margin: 0;
+        border: initial;
+        border-radius: initial;
+        width: initial;
+        min-height: initial;
+        box-shadow: initial;
+        background: initial;
+        page-break-after: always;
+    }
+
+}

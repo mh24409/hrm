@@ -1,0 +1,29 @@
+/node_modules
+# /public/build
+/public/hot
+/public/storage
+/storage/*.key
+/storage/installed.php
+/vendor
+.env
+.env.backup
+.env.production
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+auth.json
+npm-debug.log
+yarn-error.log
+/.fleet
+/.idea
+/.vscode
+
+#ignore log files
+*.zip
+*.rar
+/public/front-assets
+/public/portfolio-assets
+/lang/*/language.php
+workflow_history.php
+/resources/js/apiClient.js
+/public/module-assets

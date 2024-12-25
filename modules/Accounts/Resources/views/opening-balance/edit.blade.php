@@ -1,0 +1,137 @@
+@extends('backend.layouts.app')
+@section('title', localize('opening_balance'))
+@push('css')
+    <link href="{{ asset('backend/assets/custom.css') }}" rel="stylesheet">
+@endpush
+@section('content')
+
+
+    @include('backend.layouts.common.validation')
+    <div class="card mb-4">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="fs-17 fw-semi-bold mb-0">{{ localize('opening_balance') }}</h6>
+                </div>
+                <div class="text-end">
+                    <div class="actions">
+                        @can('read_opening_balance')
+                            <a href="{{ route('opening-balances.index') }}" class="btn btn-success btn-sm"><i
+                                    class="fa fa-list"></i>&nbsp;{{ localize('balance_list') }}</a>
+                        @endcan
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <form id="leadForm" action="{{ route('opening-balances.update', $opening_balance->uuid) }}" method="POST">
+                @method('PATCH')
+                @csrf
+                <div class="row">
+
+                    <div class="col-md-6">
+                        <div class="form-group mb-2 mx-0 row">
+                            <label for="year" class="col-sm-3 col-form-label ps-0">{{ localize('financial_year') }}<span
+                                    class="text-danger">*</span></label>
+                            <div class="col-lg-9">
+                                <select name="financial_year_id" class="select-basic-single">
+                                    <option value="">{{ localize('select_financial_year') }}</option>
+                                    @foreach ($financial_years as $key => $year)
+                                        <option value="{{ $year->id }}"
+                                            {{ $opening_balance->financial_year_id == $year->id ? 'selected' : '' }}>
+                                            {{ $year->financial_year }}</option>
+                                    @endforeach
+                                </select>
+                                @if ($errors->has('financial_year_id'))
+                                    <div class="error text-danger text-start">{{ $errors->first('financial_year_id') }}
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                        @input(['input_name' => 'date', 'type' => 'date', 'value' => $opening_balance->open_date])
+                    </div>
+
+                    <table class="table table-bordered table-hover" id="debtAccVoucher">
+                        <thead>
+                            <tr>
+                                <th width="25%" class="text-center">{{ localize('account_name') }}</th>
+                                <th width="25%" class="text-center">{{ localize('subtype') }}</th>
+                                <th width="20%" class="text-center">{{ localize('debit') }}</th>
+                                <th width="20%" class="text-center">{{ localize('credit') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="debitvoucher">
+                            <tr>
+                                <td>
+                                    <select name="coa_id" id="cmbCode_1" class="select-basic-single"
+                                        onchange="load_subtypeOpen(this.value,1)">
+                                        <option value="">{{ localize('select_amount') }}</option>
+                                        @foreach ($accounts as $account)
+                                            <option value="{{ $account->id }}"
+                                                {{ $opening_balance->acc_coa_id == $account->id ? 'selected' : '' }}>
+                                                {{ $account->account_name }}</option>
+                                        @endforeach
+                                    </select>
+                                </td>
+                                <td>
+                                    <select name="subcode_id" id="subtype_1" class="select-basic-single">
+                                        <option value="">{{ localize('select_subtype') }}</option>
+                                        @foreach ($subcodes as $subcode)
+                                            <option value="{{ $subcode->id }}"
+                                                {{ $opening_balance->acc_subcode_id == $subcode->id ? 'selected' : '' }}>
+                                                {{ $subcode->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="number" name="debit" value="{{ $opening_balance->debit }}"
+                                        class="form-control total_dprice text-right" id="txtDebit_1"
+                                        onkeyup="calculationDebtOpen(1)" autocomplete="off">
+                                </td>
+                                <td>
+                                    <input type="number" name="credit" value="{{ $opening_balance->credit }}"
+                                        class="form-control total_cprice text-right" id="txtCredit_1"
+                                        onkeyup="calculationCreditOpen(1)" autocomplete="off">
+                                    <input type="hidden" name="is_subtype" id="isSubtype_1" value="1"
+                                        autocomplete="off">
+                                </td>
+
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr>
+
+                                <td colspan="2" class="text-end"><label for="reason"
+                                        class="  col-form-label">{{ localize('total') }}</label></td>
+
+                                <td class="text-end">
+                                    <input type="text" id="grandTotald" class="form-control text-end "
+                                        name="grand_totald" value="{{ $opening_balance->debit }}" readonly
+                                        autocomplete="off">
+                                </td>
+                                <td class="text-end">
+                                    <input type="text" id="grandTotalc" class="form-control text-end "
+                                        name="grand_totalc" value="{{ $opening_balance->credit }}" readonly
+                                        autocomplete="off">
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+
+
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary submit_button"
+                            id="create_submit">{{ localize('update') }}</button>
+                        <input type="hidden" name="" id="headoption"
+                            value="<option value=''> Please select</option><?php foreach ($accounts as $acc2) {?><option value='<?php echo $acc2->id; ?>'><?php echo $acc2->account_name; ?></option><?php }?>">
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+@endsection
+@push('js')
+    <script src="{{ asset('backend/assets/custom.js') }}"></script>
+    <script src="{{ module_asset('Accounts/js/account-ledger.js') }}"></script>
+@endpush

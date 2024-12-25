@@ -1,0 +1,108 @@
+/* sale counter css start */
+.panel {
+    margin-bottom: 5px;
+    background-color: #fff;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    -webkit-box-shadow: 0 1px 1px rgba(0, 0, 0, .05);
+    box-shadow: 0 1px 1px rgba(0, 0, 0, .05);
+}
+
+.bg-dark-cl {
+    background-color: #202125 !important;
+    vertical-align: middle;
+}
+
+.panel-heading {
+    padding: 7px;
+    border-bottom: 1px solid transparent;
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+}
+
+.bg-green {
+    background: #37a000 !important;
+}
+
+.panel-footer {
+    padding: 7px 26px;
+    border-top: 1px solid #ddd;
+    border-bottom-right-radius: 3px;
+    border-bottom-left-radius: 3px;
+}
+
+.panel>.panel-collapse>.table,
+.panel>.table,
+.panel>.table-responsive>.table {
+    margin-bottom: 0;
+}
+
+.outerBroder {
+    border: 1px solid #e4e5e7;
+}
+
+/* Set a fixed scrollable wrapper */
+.table-fixed {
+    height: 332px;
+    overflow: auto;
+    border: 1px solid #e4e5e7;
+}
+
+/* Set header to stick to the top of the container. */
+.table-fixed thead tr th {
+    position: sticky;
+    top: 0;
+    background-color: #fff;
+}
+
+.table-fixed th {
+    padding: 10px 10px;
+}
+
+.table-fixed .table td,
+.table-fixed .table th {
+    vertical-align: middle;
+}
+
+.success {
+    background: #dff0d8;
+}
+
+.closing-bg {
+    font-weight: bold !important;
+    background: linear-gradient(to right, #FF4B2B, #FF416C);
+}
+
+.closing-footer-bg {
+    font-weight: bold !important;
+    background: linear-gradient(to left, #FF4B2B, #FF416C) !important;
+}
+
+.money-note-bg {
+    font-weight: bold !important;
+    background: linear-gradient(to right, #0575E6, #00F260);
+}
+
+.g-total-bg {
+    font-weight: bold !important;
+    background: linear-gradient(to left, #0575E6, #00F260);
+}
+
+.border-none {
+    border: none !important;
+}
+
+.border-none:focus {
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.counter-total-bg {
+    font-weight: bold !important;
+    background: linear-gradient(to left, #56ab2f, #a8e063);
+}
+
+.adjustment-bg {
+    font-weight: bold !important;
+    background: #ffcccc
+}

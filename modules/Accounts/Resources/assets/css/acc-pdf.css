@@ -1,0 +1,110 @@
+
+body {
+    font-family: Helvetica, sans-serif;
+}
+
+
+.left-3 {
+    width: 25% !important;
+}
+
+.right-3 {
+    width: 25% !important;
+}
+
+.center-6 {
+    width: 50% !important;
+}
+
+.table-border td,
+.table-border th,
+.table-border tbody,
+.table-border thead,
+.table-border tfoot {
+    border: 1px solid #000 !important;
+    font: 10px !important;
+    padding: 4px;
+}
+
+.padding-top-20 {
+    padding-top: 20px;
+}
+
+.padding-bottom-10 {
+    padding-bottom: 10px;
+}
+
+.fs-10 {
+    font-size: 10px !important;
+}
+
+.fs-12 {
+    font-size: 12px !important;
+}
+
+.fs-18 {
+    font-size: 18px !important;
+}
+
+.wp-3 {
+    width: 3% !important;
+}
+
+.wp-6 {
+    width: 6% !important;
+}
+
+.wp-11 {
+    width: 11% !important;
+}
+
+.wp-12 {
+    width: 12% !important;
+}
+
+.wp-13 {
+    width: 13% !important;
+}
+
+.wp-14 {
+    width: 14% !important;
+}
+
+.vertical-align {
+    vertical-align: middle !important;
+}
+
+@page {
+    margin: 10px;
+    padding: 10px;
+}
+
+@media print {
+    html,
+    body {
+        width: 210mm;
+        height: 297mm;
+    }
+
+
+    .page {
+        margin: 0;
+        border: initial;
+        border-radius: initial;
+        width: initial;
+        min-height: initial;
+        box-shadow: initial;
+        background: initial;
+        page-break-after: always;
+    }
+}
+
+.border-top {
+    border-top: 1px solid #000 !important;
+}
+
+.p-top-2-bottom-2{
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+}
+

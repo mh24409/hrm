@@ -1,0 +1,22 @@
+@media print {
+    .no-print {
+        display: none;
+    }
+
+    table {
+        border-collapse: collapse;
+        margin: 0 auto;
+        width: 100%;
+        text-align: center;
+    }
+
+    th,
+    td {
+        border: 1px solid #ddd;
+        padding: 8px;
+    }
+
+    th {
+        background-color: #f2f2f2;
+    }
+}
