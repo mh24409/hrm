@@ -49,7 +49,9 @@ class ModuleAssetLink extends Command
             }
 
             $this->info("Creating symbolic link for module: $moduleName");
-            File::link("$moduleDirectory/$assetFolder", $targetPath);
+            // File::link("$moduleDirectory/$assetFolder", $targetPath);
+            symlink("$moduleDirectory/$assetFolder", $targetPath);
+
         }
 
         $this->info('Symbolic links created.');
