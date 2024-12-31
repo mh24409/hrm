@@ -104,7 +104,7 @@ class ManualAttendanceController extends Controller
         $time_to_insert = $dt->format('H:i');
         $time = $dt->format('H:i:s');
 
-        // Checking if attendance point already exists in point_attendance table 
+        // Checking if attendance point already exists in point_attendance table
         $point_attendence_rec = DB::table("point_attendances")
             ->where('employee_id', $data['uid'])
             ->whereRaw("YEAR(create_date) = ?", [$date_y])
@@ -157,7 +157,7 @@ class ManualAttendanceController extends Controller
                     }
                 } else {
 
-                    //if get point that will deduct from point_attendence and point_reward 
+                    //if get point that will deduct from point_attendence and point_reward
                     if ((int)$point_attendence_rec->point >= (int)$attendence_point) {
 
                         $point_attendence_data['point'] = 0;
@@ -581,7 +581,7 @@ class ManualAttendanceController extends Controller
             }
         }
 
-        $holidays = array_map('trim', explode(',', strtoupper($weeklyHoliday->dayname)));
+        $holidays = array_map('trim', explode(',', strtoupper(isset($weeklyHoliday->dayname) ? $weeklyHoliday->dayname : '')));
 
         for ($day = 1; $day <= $daysInMonth; $day++) {
             $checkDay = Carbon::createFromFormat('Y-m-d', $year . '-' . $month . '-' . $day)->format('l');
