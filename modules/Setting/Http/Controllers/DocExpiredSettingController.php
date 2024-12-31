@@ -18,7 +18,6 @@ class DocExpiredSettingController extends Controller
         $doc_expired_setup = DocExpiredSetting::first();
         return view('setting::docexpired-setup.index', compact('doc_expired_setup'));
     }
-
     /**
      * Store a newly created resource in storage.
      * @param Request $request

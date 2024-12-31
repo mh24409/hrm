@@ -88,9 +88,9 @@ class EmployeeDataTable extends DataTable
                     foreach ($employee->employee_docs as $docs) {
                         if (check_expiry($docs->expiry_date)) {
                             $hasRed = true;
-                        } elseif (check_expiry($docs->expiry_date, $doc_expiry_day_setup->secondary_expiration_alert)) {
+                        } elseif ($doc_expiry_day_setup && check_expiry($docs->expiry_date, $doc_expiry_day_setup->secondary_expiration_alert)) {
                             $hasSecondary = true;
-                        } elseif (check_expiry($docs->expiry_date, $doc_expiry_day_setup->primary_expiration_alert)) {
+                        } elseif ($doc_expiry_day_setup && check_expiry($docs->expiry_date, $doc_expiry_day_setup->primary_expiration_alert)) {
                             $hasYellow = true;
                         }
                     }
