@@ -221,7 +221,7 @@
                 @endcan
 
                 @can('read_procurement')
-                    <li class="{{ request()->routeIs('units.*') ? 'mm-active' : '' }}">
+                    <li class="{{ request()->routeIs('units.*') ? 'mm-active' : '' }} d-none">
                         <a class="has-arrow material-ripple" href="#">
                             <i class="fa fa-industry"></i>
                             <span> {{ localize('procurement') }}</span>
