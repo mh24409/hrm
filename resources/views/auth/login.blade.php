@@ -9,7 +9,7 @@
                 <div class="panel login-form-w">
                     <div class="panel-header text-center mb-3">
                         <div class="mb-3">
-                            <img src="{{ app_setting()->logo }}" class="rounded-circle" width="90" height="90"
+                            <img src="{{ app_setting()->logo }}" width="90" height="90"
                                 alt="">
                         </div>
                         <h3 class="fs-24 fw-bold mb-1">{{ app_setting()->title }} Login</h3>

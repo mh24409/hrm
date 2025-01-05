@@ -12,7 +12,7 @@
                 <div class="panel login-form-w">
                     <div class="panel-header text-center mb-3">
                         <div class="mb-3">
-                            <img src="{{ app_setting()->favicon }}" class="rounded-circle" width="90" height="90"
+                            <img src="{{ app_setting()->favicon }}" width="90" height="90"
                                 alt="">
                         </div>
                         <h3 class="fs-24 fw-bold mb-1">{{ app_setting()->title }}</h3>
@@ -27,9 +27,9 @@
                                 class="form-control" id="pass"
                                 placeholder="Enter your Password" required />
                             <span class="text-danger">Note: password must be at least 8 characters</span>
-                            
+
                             <input type="hidden" name="token" value="{{$token}}">
-                            
+
                         </div>
                         <button type="submit" class="btn btn-success py-2 w-100">{{ localize('update') }}</button>
                     </form>
