@@ -672,4 +672,100 @@ class ManualAttendanceController extends Controller
             return response()->json(['data' => null, 'message' => localize('something_went_wrong') . $th->getMessage(), 'status' => 500]);
         }
     }
+    public function checkIn(Request $request)
+    {
+        $date = $request->date;
+        if (!$date) {
+            $date = Carbon::now()->format('Y-m-d');
+        } else {
+            $date = Carbon::parse($date)->format('Y-m-d');
+        }
+        $missingAttendance = Employee::with(['position:id,position_name'])->doesntHave('attendances', 'and', function ($query) use ($date) {
+            $query->whereDate('time', $date);
+        })->where('is_active', true)->get(['id', 'first_name', 'middle_name', 'last_name', 'position_id', 'employee_id']);
+        return view('humanresource::attendance.checkin', compact('missingAttendance', 'date'));
+    }
+    public function checkInStore(Request $request)
+    {
+        $request->validate([
+            'employee_id' => 'required|array',
+            'employee_id.*' => 'required|integer',
+            'in_time' => 'required|array',
+            'in_time.*' => 'required|date_format:H:i',
+            'date' => 'required|date',
+        ]);
+        try {
+            DB::beginTransaction();
+            $in_time = $request->in_time;
+            $employee_id = $request->employee_id;
+            $date = Carbon::parse($request->date);
+
+            foreach ($employee_id as $key => $value) {
+                $inDateTime = $date->copy()->modify($in_time[$key]);
+                Attendance::create([
+                    'employee_id' => $value,
+                    'time' => $inDateTime,
+                ]);
+
+            }
+
+            DB::commit();
+            return response()->json(['data' => null, 'message' => localize('attendance_save_successfully'), 'status' => 200]);
+        } catch (\Throwable $th) {
+            DB::rollback();
+            return response()->json(['data' => null, 'message' => localize('something_went_wrong') . $th->getMessage(), 'status' => 500]);
+        }
+    }
+    public function checkOut(Request $request)
+    {
+        $date = $request->date;
+        if (!$date) {
+            $date = Carbon::now()->format('Y-m-d');
+        } else {
+            $date = Carbon::parse($date)->format('Y-m-d');
+        }
+        $missingAttendance = Employee::with(['position:id,position_name'])
+        ->whereHas('attendances', function ($query) use ($date) {
+            $query->whereDate('time', $date);
+        }, '=', 1)
+        ->where('is_active', true)->get(['id', 'first_name', 'middle_name', 'last_name', 'position_id', 'employee_id']);
+            return view('humanresource::attendance.checkout', compact('missingAttendance', 'date'));
+    }
+    public function checkOutStore(Request $request)
+    {
+        $request->validate([
+            'employee_id' => 'required|array',
+            'employee_id.*' => 'required|integer',
+            'out_time' => 'required|array',
+            'out_time.*' => 'required|date_format:H:i',
+            'date' => 'required|date',
+        ]);
+        try {
+            DB::beginTransaction();
+            $out_time = $request->out_time;
+            $employee_id = $request->employee_id;
+            $date = Carbon::parse($request->date);
+
+            foreach ($employee_id as $key => $value) {
+                $outDateTime = $date->copy()->modify($out_time[$key]);
+                Attendance::create([
+                    'employee_id' => $value,
+                    'time' => $outDateTime,
+                ]);
+                $attendance_history = [
+                    'uid'    => $value,
+                    'state'  => 1,
+                    'id'     => 0,
+                    'time'   => $outDateTime,
+                ];
+                $resp_attend = $this->insert_attendance_point($attendance_history);
+            }
+
+            DB::commit();
+            return response()->json(['data' => null, 'message' => localize('attendance_save_successfully'), 'status' => 200]);
+        } catch (\Throwable $th) {
+            DB::rollback();
+            return response()->json(['data' => null, 'message' => localize('something_went_wrong') . $th->getMessage(), 'status' => 500]);
+        }
+    }
 }

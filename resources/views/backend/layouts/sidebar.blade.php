@@ -37,6 +37,18 @@
                         <ul class="nav-second-level {{ request()->routeIs('attendances.*') ? 'mm-show' : '' }}">
                             @can('read_attendance')
                                 @can('create_attendance')
+                                    <li class="{{ request()->routeIs('attendances.checkIn') ? 'mm-active' : '' }}">
+                                        <a class="dropdown-item"
+                                            href="{{ route('attendances.checkIn') }}">{{ localize('Check-in') }}</a>
+                                    </li>
+                                @endcan
+                                @can('create_attendance')
+                                    <li class="{{ request()->routeIs('attendances.checkOut') ? 'mm-active' : '' }}">
+                                        <a class="dropdown-item"
+                                            href="{{ route('attendances.checkOut') }}">{{ localize('Check-out') }}</a>
+                                    </li>
+                                @endcan
+                                @can('create_attendance')
                                     <li class="{{ request()->routeIs('attendances.create') ? 'mm-active' : '' }}">
                                         <a class="dropdown-item"
                                             href="{{ route('attendances.create') }}">{{ localize('attendance_form') }}</a>

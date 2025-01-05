@@ -245,6 +245,12 @@ Route::group(['prefix' => 'hr', 'middleware' => ['auth']], function () {
             Route::get('/attendances/edit/{attendance}', 'edit')->name('edit');
             Route::put('/update/attendances/{attendance}', 'update')->name('update');
             Route::delete('/attendances/delete/{attendance}', 'destroy')->name('destroy');
+
+            Route::get('/attendance/checkIn-attendance', 'checkIn')->name('checkIn');
+            Route::post('/attendance/checkIn-attendance', 'checkInStore')->name('checkIn.store');
+
+            Route::get('/attendance/checkOut-attendance', 'checkOut')->name('checkOut');
+            Route::post('/attendance/checkOut-attendance', 'checkOutStore')->name('checkOut.store');
         });
     });
 
