@@ -699,16 +699,13 @@ class ManualAttendanceController extends Controller
             $in_time = $request->in_time;
             $employee_id = $request->employee_id;
             $date = Carbon::parse($request->date);
-
             foreach ($employee_id as $key => $value) {
                 $inDateTime = $date->copy()->modify($in_time[$key]);
                 Attendance::create([
                     'employee_id' => $value,
                     'time' => $inDateTime,
                 ]);
-
             }
-
             DB::commit();
             return response()->json(['data' => null, 'message' => localize('attendance_save_successfully'), 'status' => 200]);
         } catch (\Throwable $th) {

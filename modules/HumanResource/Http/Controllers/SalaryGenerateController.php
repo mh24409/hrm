@@ -403,8 +403,8 @@ class SalaryGenerateController extends Controller
                         // Hourly rate computing along with transport allowance
                         $worked_hours = $this->employee_worked_hours($emp_id, $startd, $edate);
 
-                        $actual_working_hrs_month = floatval($worked_hours); 
-                        // this is for calculation 
+                        $actual_working_hrs_month = floatval($worked_hours);
+                        // this is for calculation
                         $month_actual_work_hrs = floatval($worked_hours);
 
                         // Check if actual_working_hrs_month by employee is greater than monthly_work_hours, then set monthly_work_hours as his/her actual_working_hrs_month for now..
@@ -600,7 +600,7 @@ class SalaryGenerateController extends Controller
 
         foreach ($tax_calculations as $row) {
 
-            $flag = 1; 
+            $flag = 1;
             // to enter the bottom if condition..
             $salary_tax = 0.0;
 
@@ -650,7 +650,7 @@ class SalaryGenerateController extends Controller
             $interval = $date_a->diff($date_b);
 
             // Format the interval
-            $totalwhour = $interval->format('%h:%I:%S'); 
+            $totalwhour = $interval->format('%h:%I:%S');
             // Adjust format as needed
             $totalhour[$idx] = $totalwhour;
             $totalday[$idx] = $attendancedata->mydate;
@@ -674,7 +674,7 @@ class SalaryGenerateController extends Controller
         $secs = floor($seconds % 60);
         $times = $hours * 3600 + $mins * 60 + $secs;;
 
-        // end new salary generate		
+        // end new salary generate
         $wormin = ($times / 60);
         $worhour = number_format($wormin / 60, 2);
 

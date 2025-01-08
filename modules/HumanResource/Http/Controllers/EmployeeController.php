@@ -2,39 +2,40 @@
 
 namespace Modules\HumanResource\Http\Controllers;
 
+use PDF;
 use App\Models\User;
-use Brian2694\Toastr\Facades\Toastr;
-use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
+use Maatwebsite\Excel\Facades\Excel;
 use Intervention\Image\Facades\Image;
+use Modules\Setting\Entities\Country;
+use Illuminate\Support\Facades\Storage;
 use Modules\Accounts\Entities\AccSubcode;
-use Modules\HumanResource\DataTables\EmployeeDataTable;
-use Modules\HumanResource\DataTables\InactiveEmployeeDataTable;
+use Modules\HumanResource\Entities\Gender;
+use Illuminate\Contracts\Support\Renderable;
 use Modules\HumanResource\Entities\BankInfo;
-use Modules\HumanResource\Entities\CertificateType;
-use Modules\HumanResource\Entities\Department;
 use Modules\HumanResource\Entities\DutyType;
 use Modules\HumanResource\Entities\Employee;
-use Modules\HumanResource\Entities\EmployeeAcademicInfo;
-use Modules\HumanResource\Entities\EmployeeDocs;
-use Modules\HumanResource\Entities\EmployeeFile;
-use Modules\HumanResource\Entities\EmployeeType;
-use Modules\HumanResource\Entities\Gender;
-use Modules\HumanResource\Entities\MaritalStatus;
-use Modules\HumanResource\Entities\PayFrequency;
 use Modules\HumanResource\Entities\Position;
 use Modules\HumanResource\Entities\SetupRule;
 use Modules\HumanResource\Entities\SkillType;
-use Modules\HumanResource\Http\Requests\CertificateTypeRequest;
+use Modules\HumanResource\Entities\Department;
+use Modules\HumanResource\Entities\EmployeeDocs;
+use Modules\HumanResource\Entities\EmployeeFile;
+use Modules\HumanResource\Entities\EmployeeType;
+use Modules\HumanResource\Entities\PayFrequency;
+use Modules\HumanResource\Entities\MaritalStatus;
+use Modules\HumanResource\Entities\CertificateType;
+use Modules\HumanResource\DataTables\EmployeeDataTable;
+use Modules\HumanResource\Entities\EmployeeAcademicInfo;
+use Modules\HumanResource\Http\Requests\SkillTypeRequest;
 use Modules\HumanResource\Http\Requests\EmployeeCreateRequest;
 use Modules\HumanResource\Http\Requests\EmployeeUpdateRequest;
-use Modules\HumanResource\Http\Requests\SkillTypeRequest;
-use Modules\Setting\Entities\Country;
-use PDF;
+use Modules\HumanResource\DataTables\InactiveEmployeeDataTable;
+use Modules\HumanResource\Http\Requests\CertificateTypeRequest;
 
 class EmployeeController extends Controller
 {
@@ -219,6 +220,80 @@ class EmployeeController extends Controller
                 ->log('An error occurred: ' . $e->getMessage());
             Toastr::error('Something went wrong :)', 'Errors');
             return redirect()->back()->with('error', 'Something went wrong');
+        }
+    }
+    public function bulkUpload(Request $request)
+    {
+        $request->validate([
+            'excel_file' => 'required|mimes:xlsx,xls',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $file = $request->file('excel_file');
+            $filePath = $file->storeAs('uploads', 'bulk_employees_' . time() . '.' . $file->getClientOriginalExtension(), 'public');
+
+            // Load Excel File
+            $data = Excel::toArray([], storage_path('app/public/' . $filePath));
+            $employees = $data[0];
+
+            foreach ($employees as $key => $row) {
+                if ($key === 0) continue; // Skip the header row
+
+                // Create User
+                $user = new User();
+                $user->user_type_id = 2;
+                $user->user_name = strtolower($row[0] . ' ' . $row[1]); // First Name + Last Name
+                $user->full_name = strtolower($row[0] . ' ' . $row[1]);
+                $user->email = $row[2];
+                $user->contact_no = $row[3];
+                $user->password = Hash::make($row[4]);
+                $user->is_active = true;
+                $user->save();
+                $user->assignRole(2);
+
+                // Create Employee
+                $employee = new Employee();
+                $employee->first_name = $row[0];
+                $employee->last_name = $row[1];
+                $employee->email = $row[2];
+                $employee->phone = $row[3];
+                $employee->user_id = $user->id;
+                $employee->save();
+
+                // Bank Info
+                BankInfo::create([
+                    'employee_id' => $employee->id,
+                    'acc_number' => $row[5],
+                    'bank_name' => $row[6],
+                    'bban_num' => $row[7],
+                    'branch_address' => $row[8],
+                ]);
+
+                // Employee File
+                EmployeeFile::create([
+                    'employee_id' => $employee->id,
+                    'tin_no' => $row[9],
+                    'basic' => $row[10],
+                    'gross_salary' => $row[11],
+                    'transport' => $row[12],
+                    'medical_benefit' => $row[13],
+                    'other_benefit' => $row[14],
+                    'family_benefit' => $row[15],
+                    'transportation_benefit' => $row[16],
+                ]);
+            }
+
+            DB::commit();
+            Toastr::success('Employees uploaded successfully.', 'Success');
+            return redirect()->route('employees.index');
+        } catch (\Exception $e) {
+            DB::rollback();
+            activity()
+                ->causedBy(auth()->user())
+                ->log('An error occurred during bulk upload: ' . $e->getMessage());
+            Toastr::error('Something went wrong during the bulk upload.', 'Error');
+            return redirect()->back()->with('error', 'Something went wrong during the bulk upload.');
         }
     }
 

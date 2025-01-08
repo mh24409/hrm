@@ -18,6 +18,12 @@
             </div>
         </div>
         <div class="card-body">
+            <form action="{{ route('employee.bulkUpload') }}" method="post" enctype="multipart/form-data">
+                @csrf
+                <label for="file"> file</label>
+                <input type="file" name="excel_file">
+                <button type="submit">Upload</button>
+            </form>
             <div class="row justify-content-center">
                 <div class="col-md-12 text-center">
                     <form action="{{ route('employees.store') }}" method="POST" class="f1"
