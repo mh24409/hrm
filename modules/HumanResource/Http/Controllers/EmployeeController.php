@@ -3,6 +3,7 @@
 namespace Modules\HumanResource\Http\Controllers;
 
 use PDF;
+use stdClass;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\Hash;
 use Maatwebsite\Excel\Facades\Excel;
 use Intervention\Image\Facades\Image;
 use Modules\Setting\Entities\Country;
+use PhpParser\Node\Expr\Cast\Object_;
 use Illuminate\Support\Facades\Storage;
 use Modules\Accounts\Entities\AccSubcode;
 use Modules\HumanResource\Entities\Gender;
@@ -222,7 +224,7 @@ class EmployeeController extends Controller
             return redirect()->back()->with('error', 'Something went wrong');
         }
     }
-    public function bulkUpload(Request $request)
+    public function bulkUpload2(Request $request)
     {
         $request->validate([
             'excel_file' => 'required|mimes:xlsx,xls',
@@ -296,7 +298,117 @@ class EmployeeController extends Controller
             return redirect()->back()->with('error', 'Something went wrong during the bulk upload.');
         }
     }
+    public function bulkUpload(Request $request)
+    {
+        DB::beginTransaction();
+        try {
+            // Validate uploaded file
+            $request->validate([
+                'employee_file' => 'required|file|mimes:xlsx,csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ]);
 
+            $file = $request->file('employee_file');
+            $filePath = $file->storeAs('uploads', 'bulk_employees_' . time() . '.' . $file->getClientOriginalExtension(), 'public');
+            $data = Excel::toArray([], storage_path('app/public/' . $filePath));
+            $employee = $data[0];
+            // Process each row
+            $keys = [];
+            $data = new stdClass();
+            foreach ($employee as $key => $row) {
+                if ($key === 0) {
+                    $keys = $row;
+                    continue; // Skip the header row
+                }
+
+                // Map the current row to an object using the keys
+                foreach ($row as $k => $r) {
+                    $data->{$keys[$k]} = $r; // Dynamically set property names
+                }
+
+                // Create new user
+                $user = User::create([
+                    'user_type_id' => 2,
+                    'user_name' => strtolower($data->first_name . ' ' . $data->last_name),
+                    'full_name' => strtolower($data->first_name . ' ' . $data->last_name),
+                    'email' => $data->email,
+                    'contact_no' => $data->phone,
+                    'password' => Hash::make($data->password),
+                    'is_active' => true,
+                ]);
+                $user->assignRole(2);
+
+                // Create employee record
+                $employeeRecord = new Employee();
+                $employeeRecord->fill((array)$data); // Convert object to array
+                $employeeRecord->user_id = $user->id;
+
+                // Handle profile image
+                if (isset($data->profile_image) && !empty($data->profile_image)) {
+                    $imagePath = $data->profile_image;
+                    $filename = time() . rand(10, 1000) . '.' . pathinfo($imagePath, PATHINFO_EXTENSION);
+                    $path = Storage::disk('public')->putFileAs('employee', $imagePath, $filename);
+                    $employeeRecord->profile_img_name = $filename;
+                    $employeeRecord->profile_img_location = $path;
+                }
+                $employeeRecord->save();
+
+                // Create associated BankInfo record
+                BankInfo::create([
+                    'employee_id' => $employeeRecord->id,
+                    'acc_number' => $data->account_number,
+                    'bank_name' => $data->bank_name,
+                    'bban_num' => $data->bban_num,
+                    'branch_address' => $data->branch_address,
+                ]);
+
+                // Create associated EmployeeFile record
+                EmployeeFile::create([
+                    'employee_id' => $employeeRecord->id,
+                    'tin_no' => $data->tin_no,
+                    'basic' => $data->basic_salary,
+                    'gross_salary' => $data->gross_salary,
+                    'transport' => $data->transport_allowance,
+                    'medical_benefit' => $data->medical_benefit,
+                    'other_benefit' => $data->other_benefit,
+                    'family_benefit' => $data->family_benefit,
+                    'transportation_benefit' => $data->transportation_benefit,
+                ]);
+
+                // Handle employee documents
+                if (isset($data->employee_docs) && is_array($data->employee_docs)) {
+                    foreach ($data->employee_docs as $doc) {
+                        if (isset($doc['file']) && !empty($doc['file'])) {
+                            $docPath = $doc['file'];
+                            $docFilename = time() . rand(10, 1000) . '.' . pathinfo($docPath, PATHINFO_EXTENSION);
+                            $docStoragePath = Storage::disk('public')->putFileAs('employee/docs', $docPath, $docFilename);
+
+                            EmployeeDocs::create([
+                                'employee_id' => $employeeRecord->id,
+                                'file_name' => $docFilename,
+                                'file_path' => $docStoragePath,
+                                'doc_title' => $doc['document_title'] ?? null,
+                                'expiry_date' => $doc['expiry_date'] ?? null,
+                            ]);
+                        }
+                    }
+                }
+            }
+
+
+            DB::commit();
+
+            Toastr::success('Employees Imported Successfully!', 'Success');
+            return redirect()->route('employees.index');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $e;
+            activity()
+                ->causedBy(auth()->user())
+                ->log('Error during employee import: ' . $e->getMessage());
+            Toastr::error('Failed to import employees. Please check the file and try again.', 'Error');
+            return redirect()->back()->with('error', 'Failed to import employees.');
+        }
+    }
     /**
      * Show the specified resource.
      * @param int $id
