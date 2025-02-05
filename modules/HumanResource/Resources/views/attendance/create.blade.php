@@ -13,8 +13,11 @@
                 <div class="text-end">
                     <div class="actions">
                         @can('create_attendance')
+                            <a href="#" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#pulltodayattendance"><i
+                                    class="fa fa-plus-circle"></i>&nbsp;{{ localize('pull_today_attendance') }}</a>
+                            @include('humanresource::attendance.pulltodayattendance')
                             <a href="#" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#bulkInsert"><i
-                                    class="fa fa-plus-circle"></i>&nbsp;{{ localize('bulk_insert') }}</a>
+                                    class="fa fa-plus-circle"></i>&nbsp;{{ localize('bulk_insert_file') }}</a>
                             @include('humanresource::attendance.xlinsert')
                         @endcan
                     </div>

@@ -68,7 +68,7 @@ Route::group(['prefix' => 'hr', 'middleware' => ['auth']], function () {
     Route::resource('positions', PositionController::class);
 
     Route::resource('employees', EmployeeController::class);
-    Route::post('employee-bulk', [EmployeeController::class, 'bulkUpload'])->name('employee.bulkUpload'); 
+    Route::post('employee-bulk', [EmployeeController::class, 'bulkUpload'])->name('employee.bulkUpload');
     Route::post('employee-info', [EmployeeController::class, 'employeeInfo'])->name('employee.employee_info');
     Route::get('inactive-list', [EmployeeController::class, 'inactive_list'])->name('employees.inactive_list');
     Route::get('employee/status-change/{id:id}', [EmployeeController::class, 'statusChange'])->name('employee.status_change');
@@ -252,6 +252,10 @@ Route::group(['prefix' => 'hr', 'middleware' => ['auth']], function () {
 
             Route::get('/attendance/checkOut-attendance', 'checkOut')->name('checkOut');
             Route::post('/attendance/checkOut-attendance', 'checkOutStore')->name('checkOut.store');
+            Route::get('/zk/attendance', 'ZkAttendance')->name('ZkAttendance');
+            Route::post('/zk/attendance/day', 'ZkAttendanceByDay')->name('ZkAttendanceByDay');
+
+            Route::get('/zk/monthly-attendance', 'ZkMonthlyAttendance')->name('ZkMonthAttendance');
         });
     });
 

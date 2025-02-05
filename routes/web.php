@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Route;
 use Modules\Localize\Entities\Langstring;
 use Modules\Localize\Entities\Langstrval;
 use Illuminate\Support\Facades\Artisan;
-
+use Rats\Zkteco\Lib\ZKTeco;
 Route::get('/', function () {
     return redirect()->route('login');
 });
@@ -95,9 +95,4 @@ Route::get('/insert-language-value', function () {
     }
 
     return 'Phrase Value Inserted Successfully..!!';
-});
-
-Route::get('test1', function () {
-    session()->put('test1', 'Phrase Value Inserted Successfully..!!');
-    return session()->get('test1');
 });

@@ -2,6 +2,7 @@
 
 namespace Modules\HumanResource\Http\Controllers;
 
+use App\Exports\MonthAttendanceExport;
 use App\Imports\AttendanceImport;
 use App\Imports\ManualAttendanceImport;
 use Brian2694\Toastr\Facades\Toastr;
@@ -19,6 +20,8 @@ use Modules\HumanResource\Entities\WeekHoliday;
 use Modules\HumanResource\Entities\PointSettings;
 use Modules\HumanResource\Entities\PointAttendance;
 use Modules\HumanResource\Entities\RewardPoint;
+use Rats\Zkteco\Lib\ZKTeco;
+use Illuminate\Support\Str;
 
 class ManualAttendanceController extends Controller
 {
@@ -555,6 +558,7 @@ class ManualAttendanceController extends Controller
 
     public function monthlyStore(Request $request)
     {
+
         $year = $request->year;
         $month = $request->month;
         $in_time = Carbon::parse($request->in_time)->format('H:i:s');
@@ -582,10 +586,11 @@ class ManualAttendanceController extends Controller
         }
 
         $holidays = array_map('trim', explode(',', strtoupper(isset($weeklyHoliday->dayname) ? $weeklyHoliday->dayname : '')));
-
+        $weekendholidays = ['friday', 'saturday'];
+        $weekendholidays = array_map('ucfirst', $weekendholidays);
         for ($day = 1; $day <= $daysInMonth; $day++) {
             $checkDay = Carbon::createFromFormat('Y-m-d', $year . '-' . $month . '-' . $day)->format('l');
-            if (in_array(strtoupper($checkDay), $holidays) || in_array((string) $day, $p_holidays)) {
+            if (in_array(strtoupper($checkDay), $holidays) || in_array((string) $day, $p_holidays) || in_array((string) $checkDay, $weekendholidays)) {
                 continue;
             }
 
@@ -617,7 +622,6 @@ class ManualAttendanceController extends Controller
             return redirect()->route('attendances.monthlyCreate')->with('error', localize('error'));
         }
     }
-
     public function missingAttendance(Request $request)
     {
         $date = $request->date;
@@ -632,7 +636,6 @@ class ManualAttendanceController extends Controller
         })->where('is_active', true)->get(['id', 'first_name', 'middle_name', 'last_name', 'position_id', 'employee_id']);
         return view('humanresource::attendance.missing', compact('missingAttendance', 'date'));
     }
-
     public function missingAttendanceStore(Request $request)
     {
         $request->validate([
@@ -713,6 +716,368 @@ class ManualAttendanceController extends Controller
             return response()->json(['data' => null, 'message' => localize('something_went_wrong') . $th->getMessage(), 'status' => 500]);
         }
     }
+    public function ZkAttendance()
+    {
+        // $zk = new ZKTeco('192.168.1.201');
+        // $zk->connect();
+        // $zk->enableDevice();
+
+        // $attendance_data = $zk->getAttendance();
+        $attendance_data = '[
+            {"uid":4,"id":"2","state":15,"timestamp":"2025-02-05 13:24:49","type":255},
+            {"uid":5,"id":"2","state":15,"timestamp":"2025-02-05 13:31:59","type":255},
+            {"uid":1,"id":"2","state":15,"timestamp":"2024-02-05 13:46:56","type":255},
+            {"uid":2,"id":"2","state":15,"timestamp":"2025-02-05 14:44:13","type":255},
+            {"uid":3,"id":"2","state":15,"timestamp":"2025-02-05 15:35:01","type":255},
+            {"uid":2,"id":"2","state":15,"timestamp":"2025-02-05 20:44:13","type":255},
+            {"uid":6,"id":"1","state":1,"timestamp":"2025-02-05 13:32:24","type":255},
+            {"uid":7,"id":"3","state":15,"timestamp":"2025-02-05 13:33:58","type":255},
+            {"uid":8,"id":"1","state":1,"timestamp":"2025-02-05 13:34:39","type":255},
+            {"uid":9,"id":"2","state":15,"timestamp":"2025-02-05 13:36:00","type":255},
+            {"uid":10,"id":"16","state":15,"timestamp":"2025-02-05 13:49:53","type":255}
+        ]';
+
+        $attendance_data = json_decode($attendance_data, true);
+        $today = Carbon::today()->toDateString();
+
+        $todayLogs = collect($attendance_data)->filter(function ($log) use ($today) {
+            return Carbon::parse($log['timestamp'])->toDateString() === $today;
+        });
+
+        $groupedLogs = $todayLogs->groupBy(function ($log) {
+            return $log['id'] . '_' . Carbon::parse($log['timestamp'])->toDateString();
+        });
+
+        try {
+            DB::beginTransaction();
+
+            foreach ($groupedLogs as $key => $records) {
+                $records = collect($records)->sortBy('timestamp')->values();
+
+                $zk_userId = explode('_', $key)[0];
+                $date = explode('_', $key)[1];
+
+                $checkIn = $records->first();
+                $checkOut = $records->last();
+
+                $user = DB::table('users')->where('zk_id', $zk_userId)->first();
+                if ($user) {
+                    $attendance_exist = Attendance::where('employee_id', $user->id)
+                        ->whereDate('time', $date)
+                        ->count();
+                    if ($attendance_exist == 0 || $attendance_exist == 1) {
+                        if ($attendance_exist == 1) {
+                            Attendance::where('employee_id', $user->id)->whereDate('time', $date)->forceDelete();
+                        }
+                        Attendance::create([
+                            'employee_id' => $user->id,
+                            'time' => $checkIn['timestamp'],
+                        ]);
+                        Attendance::create([
+                            'employee_id' => $user->id,
+                            'time' => $checkOut['timestamp'],
+                        ]);
+                    }
+                }
+            }
+
+            DB::commit();
+            // return response()->json(['data' => null, 'message' => localize('attendance_save_successfully'), 'status' => 200]);
+            return redirect()->route('attendances.create')->with('success', localize('attendance_save_successfully'));
+
+            // return response()->json([
+            //     'data' => null,
+            //     'message' => localize('attendance_save_successfully'),
+            //     'status' => 200
+            // ]);
+        } catch (\Throwable $th) {
+            DB::rollback(); // Rollback if there's an error
+            return response()->json([
+                'data' => null,
+                'message' => localize('something_went_wrong') . ' ' . $th->getMessage(),
+                'status' => 500
+            ]);
+        }
+    }
+    public function ZkAttendanceByDay(Request $request)
+    {
+
+
+        $requestDate = $request->date;
+        // $requestDate = '2025-01-05';
+        $date = Carbon::parse($requestDate)->toDateString();
+        $year = Carbon::now()->format('Y');
+        $enterMonth = Carbon::parse($requestDate)->format('m');
+        $currentMonth = Carbon::now()->format('m');
+        if ($enterMonth == $currentMonth) {
+            // $zk = new ZKTeco('192.168.1.201');
+            // $zk->connect();
+            // $zk->enableDevice();
+
+            // $attendance_data = $zk->getAttendance();
+            $attendance_data = '[
+                {"uid":1,"id":"2","state":15,"timestamp":"2024-12-24 13:46:56","type":255},
+                {"uid":2,"id":"2","state":15,"timestamp":"2025-02-05 14:44:13","type":255},
+                {"uid":3,"id":"2","state":15,"timestamp":"2025-02-05 15:35:01","type":255},
+                {"uid":2,"id":"2","state":15,"timestamp":"2025-02-05 20:44:13","type":255},
+                {"uid":4,"id":"2","state":15,"timestamp":"2025-02-05 13:24:49","type":255},
+                {"uid":5,"id":"2","state":15,"timestamp":"2025-02-02 13:31:59","type":255},
+                {"uid":6,"id":"1","state":1,"timestamp":"2025-02-02 13:32:24","type":255},
+                {"uid":7,"id":"3","state":15,"timestamp":"2025-02-02 13:33:58","type":255},
+                {"uid":8,"id":"1","state":1,"timestamp":"2025-02-02 13:34:39","type":255},
+                {"uid":9,"id":"2","state":15,"timestamp":"2025-02-02 13:36:00","type":255},
+                {"uid":10,"id":"16","state":15,"timestamp":"2025-02-04 13:49:53","type":255}
+            ]';
+
+            $attendance_data = json_decode($attendance_data, true);
+            $todayLogs = collect($attendance_data)->filter(function ($log) use ($date) {
+                return Carbon::parse($log['timestamp'])->toDateString() === $date;
+            });
+
+            $groupedLogs = $todayLogs->groupBy(function ($log) {
+                return $log['id'] . '_' . Carbon::parse($log['timestamp'])->toDateString();
+            });
+
+            try {
+                DB::beginTransaction();
+                Attendance::whereDate('time', $date)->forceDelete();
+                foreach ($groupedLogs as $key => $records) {
+                    $records = collect($records)->sortBy('timestamp')->values();
+
+                    $zk_userId = explode('_', $key)[0];
+                    $date = explode('_', $key)[1];
+
+                    $checkIn = $records->first();
+                    $checkOut = $records->last();
+
+                    $user = DB::table('users')->where('zk_id', $zk_userId)->first();
+                    if ($user) {
+                        $attendance_exist = Attendance::where('employee_id', $user->id)
+                            ->whereDate('time', $date)
+                            ->count();
+                        if ($attendance_exist == 0 || $attendance_exist == 1) {
+                            if ($attendance_exist == 1) {
+                                Attendance::where('employee_id', $user->id)->whereDate('time', $date)->forceDelete();
+                            }
+                            Attendance::create([
+                                'employee_id' => $user->id,
+                                'time' => $checkIn['timestamp'],
+                            ]);
+                            Attendance::create([
+                                'employee_id' => $user->id,
+                                'time' => $checkOut['timestamp'],
+                            ]);
+                        }
+                    }
+                }
+
+                DB::commit();
+                return redirect()->route('attendances.create')->with('success', localize('attendance_save_successfully'));
+            } catch (\Throwable $th) {
+                DB::rollback(); // Rollback if there's an error
+                return response()->json([
+                    'data' => null,
+                    'message' => localize('something_went_wrong') . ' ' . $th->getMessage(),
+                    'status' => 500
+                ]);
+            }
+        } else {
+            $lastMonthName = Carbon::now()->subMonth()->format('F');
+            $fileName = Str::slug($lastMonthName) . '_' . $year . '.xlsx';
+            $filePath = storage_path('zk_attendance/' . $fileName);
+
+            if (file_exists($filePath)) {
+                $attendance_data = Excel::toArray(new \App\Imports\AttendanceImport, $filePath);
+                $todayLogs = collect($attendance_data[0])->filter(function ($log) use ($date) {
+                    return Carbon::parse($log['timestamp'])->toDateString() === $date;
+                });
+
+                $groupedLogs = $todayLogs->groupBy(function ($log) {
+                    return $log['zk_id'] . '_' . Carbon::parse($log['timestamp'])->toDateString();
+                });
+
+                try {
+                    DB::beginTransaction();
+                    Attendance::whereDate('time', $date)->forceDelete();
+                    foreach ($groupedLogs as $key => $records) {
+                        $records = collect($records)->sortBy('timestamp')->values();
+
+                        $zk_userId = explode('_', $key)[0];
+                        $date = explode('_', $key)[1];
+
+                        $checkIn = $records->first();
+                        $checkOut = $records->last();
+
+                        $user = DB::table('users')->where('zk_id', $zk_userId)->first();
+                        if ($user) {
+                            $attendance_exist = Attendance::where('employee_id', $user->id)
+                                ->whereDate('time', $date)
+                                ->count();
+                            if ($attendance_exist == 0 || $attendance_exist == 1) {
+                                if ($attendance_exist == 1) {
+                                    Attendance::where('employee_id', $user->id)->whereDate('time', $date)->forceDelete();
+                                }
+                                Attendance::create([
+                                    'employee_id' => $user->id,
+                                    'time' => $checkIn['timestamp'],
+                                ]);
+                                Attendance::create([
+                                    'employee_id' => $user->id,
+                                    'time' => $checkOut['timestamp'],
+                                ]);
+                            }
+                        }
+                    }
+                    DB::commit();
+                    return redirect()->route('attendances.create')->with('success', localize('attendance_save_successfully'));
+                } catch (\Throwable $th) {
+                    DB::rollback(); // Rollback if there's an error
+                    return response()->json([
+                        'data' => null,
+                        'message' => localize('something_went_wrong') . ' ' . $th->getMessage(),
+                        'status' => 500
+                    ]);
+                }
+            } else {
+                return response()->json([
+                    'data' => null,
+                    'message' => 'Attendance file not found for the previous month',
+                    'status' => 404
+                ]);
+            }
+        }
+    }
+    // run every first day of month after 12 am before start work
+    public function ZkMonthlyAttendance()
+    {
+        // $zk = new ZKTeco('192.168.1.201');
+        // $zk->connect();
+        // $zk->enableDevice();
+
+        // $attendance_data = $zk->getAttendance();
+        $attendance_data = '[
+            {"uid":1,"id":"2","state":15,"timestamp":"2024-12-24 13:46:56","type":255},
+            {"uid":2,"id":"2","state":15,"timestamp":"2025-01-29 14:44:13","type":255},
+            {"uid":2,"id":"2","state":15,"timestamp":"2025-01-29 20:44:13","type":255},
+            {"uid":3,"id":"2","state":15,"timestamp":"2025-01-29 15:35:01","type":255},
+            {"uid":4,"id":"2","state":15,"timestamp":"2025-02-02 13:24:49","type":255},
+            {"uid":5,"id":"2","state":15,"timestamp":"2025-02-02 13:31:59","type":255},
+            {"uid":6,"id":"1","state":1,"timestamp":"2025-02-02 13:32:24","type":255},
+            {"uid":7,"id":"3","state":15,"timestamp":"2025-02-02 13:33:58","type":255},
+            {"uid":8,"id":"1","state":1,"timestamp":"2025-02-02 13:34:39","type":255},
+            {"uid":9,"id":"2","state":15,"timestamp":"2025-02-02 13:36:00","type":255},
+            {"uid":10,"id":"16","state":15,"timestamp":"2025-02-02 13:49:53","type":255}
+        ]';
+
+        $attendance_data = json_decode($attendance_data, true);
+
+        // Get last month details
+        $year = Carbon::now()->subMonth()->format('Y');
+        $lastMonth = Carbon::now()->subMonth()->format('m');
+        $lastMonthName = Carbon::now()->subMonth()->format('F');
+
+        // Filter records from last month
+        $lastMonthLogs = collect($attendance_data)->filter(function ($log) use ($lastMonth) {
+            return Carbon::parse($log['timestamp'])->format('m') === $lastMonth;
+        });
+
+        try {
+            $formattedLogs = [];
+
+            foreach ($lastMonthLogs as $record) {
+                $zk_userId = $record['id'];
+                $timestamp = $record['timestamp'];
+                $date = Carbon::parse($timestamp)->toDateString();
+
+                // Get user details from database
+                $user = DB::table('users')->where('zk_id', $zk_userId)->first();
+
+                if ($user) {
+                    $formattedLogs[] = [
+                        'id' => $user->id,
+                        'uuid' => $user->uuid,
+                        'name' => $user->full_name,
+                        'zk_id' => $user->zk_id,
+                        'timestamp' => $timestamp,
+                    ];
+                }
+            }
+            // return $formattedLogs ;
+            // Store the Excel file
+            $fileName = Str::slug($lastMonthName) . '_' . $year . '.xlsx';
+            Excel::store(new MonthAttendanceExport($formattedLogs), $fileName, 'zk_attendance');
+            // $zk->clearAttendance();
+
+            return redirect()->route('attendances.create')->with('success', localize('data_save'));
+        } catch (\Throwable $th) {
+            DB::rollback(); // Rollback if there's an error
+            return response()->json([
+                'data' => null,
+                'message' => localize('something_went_wrong') . ' ' . $th->getMessage(),
+                'status' => 500
+            ]);
+        }
+    }
+    // public function ZkAttendanceByDate(Request $request)
+    // {
+    //     $zk = new ZKTeco('192.168.1.201');
+    //     $zk->connect();
+    //     $zk->enableDevice();
+
+    //     $attendance_data = $zk->getAttendance();
+
+    //     $today = Carbon::parse($request->date)->toDateString();
+
+    //     $todayLogs = collect($attendance_data)->filter(function ($log) use ($today) {
+    //         return Carbon::parse($log['timestamp'])->toDateString() === $today;
+    //     });
+
+    //     $groupedLogs = $todayLogs->groupBy(function ($log) {
+    //         return $log['id'] . '_' . Carbon::parse($log['timestamp'])->toDateString();
+    //     });
+
+    //     try {
+    //         DB::beginTransaction();
+
+    //         foreach ($groupedLogs as $key => $records) {
+    //             $records = collect($records)->sortBy('timestamp')->values();
+
+    //             $zk_userId = explode('_', $key)[0];
+    //             $date = explode('_', $key)[1];
+
+    //             $checkIn = $records->first();
+    //             $checkOut = $records->last();
+
+    //             $user = DB::table('users')->where('zk_id', $zk_userId)->first();
+
+    //             if ($user) {
+    //                 Attendance::create([
+    //                     'employee_id' => $user->id,
+    //                     'time' => $checkIn['timestamp'],
+    //                 ]);
+    //                 Attendance::create([
+    //                     'employee_id' => $user->id,
+    //                     'time' => $checkOut['timestamp'],
+    //                 ]);
+    //             }
+    //         }
+
+    //         DB::commit();
+
+    //         return response()->json([
+    //             'data' => null,
+    //             'message' => localize('attendance_save_successfully'),
+    //             'status' => 200
+    //         ]);
+    //     } catch (\Throwable $th) {
+    //         DB::rollback(); // Rollback if there's an error
+    //         return response()->json([
+    //             'data' => null,
+    //             'message' => localize('something_went_wrong') . ' ' . $th->getMessage(),
+    //             'status' => 500
+    //         ]);
+    //     }
+    // }
     public function checkOut(Request $request)
     {
         $date = $request->date;
@@ -722,11 +1087,11 @@ class ManualAttendanceController extends Controller
             $date = Carbon::parse($date)->format('Y-m-d');
         }
         $missingAttendance = Employee::with(['position:id,position_name'])
-        ->whereHas('attendances', function ($query) use ($date) {
-            $query->whereDate('time', $date);
-        }, '=', 1)
-        ->where('is_active', true)->get(['id', 'first_name', 'middle_name', 'last_name', 'position_id', 'employee_id']);
-            return view('humanresource::attendance.checkout', compact('missingAttendance', 'date'));
+            ->whereHas('attendances', function ($query) use ($date) {
+                $query->whereDate('time', $date);
+            }, '=', 1)
+            ->where('is_active', true)->get(['id', 'first_name', 'middle_name', 'last_name', 'position_id', 'employee_id']);
+        return view('humanresource::attendance.checkout', compact('missingAttendance', 'date'));
     }
     public function checkOutStore(Request $request)
     {

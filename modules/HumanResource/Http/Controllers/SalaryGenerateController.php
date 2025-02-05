@@ -355,45 +355,8 @@ class SalaryGenerateController extends Controller
             return redirect()->route('salary.generate')->with('fail', $e);
         }
     }
-    public function get_holiday_count($start_date, $end_date, $holidays = []) {
-        // Fetch holidays from the database that overlap with the given range
-        $month_holidays = Holiday::where(function ($query) use ($start_date, $end_date) {
-            $query->whereBetween('start_date', [$start_date, $end_date])
-                ->orWhereBetween('end_date', [$start_date, $end_date])
-                ->orWhere(function ($subQuery) use ($start_date, $end_date) {
-                    $subQuery->where('start_date', '<', $start_date)
-                            ->where('end_date', '>', $end_date);
-                });
-        })->get();
 
-        // Calculate the days from database holidays
-        $total_days = $month_holidays->sum(function ($holiday) use ($start_date, $end_date) {
-            $holiday_start = Carbon::parse($holiday->start_date)->greaterThan($start_date)
-                ? Carbon::parse($holiday->start_date)
-                : $start_date;
-            $holiday_end = Carbon::parse($holiday->end_date)->lessThan($end_date)
-                ? Carbon::parse($holiday->end_date)
-                : $end_date;
-
-            return $holiday_start->diffInDays($holiday_end) + 1;
-        });
-
-        // Parse the $holidays array and calculate days falling in the range
-        $start = Carbon::parse($start_date);
-        $end = Carbon::parse($end_date);
-
-        $additional_days = collect($holidays)->filter(function ($holiday) use ($start, $end) {
-            $holiday_date = Carbon::parse($holiday);
-            return $holiday_date->between($start, $end);
-        })->count();
-
-        // Add additional days to the total
-        $total_days += $additional_days;
-
-        return $total_days;
-    }
-
-    public function salaryGenerate(Request $request)
+    public function salaryGenerate1(Request $request)
     {
 
         $request->validate([
@@ -409,36 +372,13 @@ class SalaryGenerateController extends Controller
         DB::beginTransaction();
         try {
 
-            // salary of month of user somos
-            // works days ws
-            // salary of day somos / ws
-            // works hours some of hours of all days wh
-            // salary of hour somos / wh
-
-
             $setting = Application::first();
 
             $salary_month = Carbon::parse($request->salary_month);
-
-
-
             $start_date = $startd = $salary_month->firstOfMonth()->format('Y-m-d');
             $end_date = $edate = $salary_month->lastOfMonth()->format('Y-m-d');
-
-            $holidays = ['friday', 'saturday'];
-            $work_from = '09:00:00';
-            $work_to = '18:00:00';
-            $this_month_holidays = $this->get_holiday_count($start_date, $end_date, $holidays);
-
-            $work_start_time = Carbon::createFromTimeString($work_from);
-            $work_end_time = Carbon::createFromTimeString($work_to);
-
-            $month_work_days = $salary_month->daysInMonth - $this_month_holidays;
-            $hours_should_work = $work_end_time->diffInHours($work_start_time) * $month_work_days;
-
             $total_days = $salary_month->daysInMonth;
             $month = $salary_month->month;
-
 
             $salary_sheet_info = [
                 'name' => $request->salary_month,
@@ -451,95 +391,7 @@ class SalaryGenerateController extends Controller
             $salary_sheet->create($salary_sheet_info); //save salary sheet info here
 
             $employees = Employee::with('employee_files')->where('is_active', 1)->where('is_left', 0)->get();
-            if ($employees->count() > 0) {
-                foreach ($employees as $key => $value) {
-                    $discount = 0;
-                    $final_salary = 0;
-                    $emp_id = $value->id;
-                    $basic = $value->employee_files->basic;
-                    $hour = $basic / $hours_should_work;
-                    $day = $basic / $month_work_days;
-                    $worked_hours = $this->employee_worked_hours($emp_id, $startd, $edate);
-                    $diff_hourse = $hours_should_work - $worked_hours;
-                    $discount += $diff_hourse * $hour;
-                    /////////////////////
-                    $employee_file = $value->employee_files;
-                    if ($employee_file) {
-                        $total_benefits = floatval($employee_file->medical_benefit) + floatval($employee_file->family_benefit) + floatval($employee_file->transportation_benefit) + floatval($employee_file->other_benefit);
-                        $hourly_rate_trasport_allowance = floatval($employee_file->transport / $hours_should_work);
-                        $transport_allowance = $hourly_rate_trasport_allowance * $worked_hours;
-                    }
-                    $state_income_tax = 0.0;
-                        if ($employee_file->tin_no != null && (int)$value->employee_type_id == 3) {
-                            $state_income_tax = floatval($this->state_income_tax(floatval($basic) - floatval($discount) + floatval($transport_allowance) + floatval($total_benefits)));
-                        }
-                    $soc_sec_npf_tax = 0.0;
-                    $employer_contribution = 0.0;
-                    $icf_amount = 0.0;
 
-                    $soc_sec_npf_tax_percnt = floatval($setting->soc_sec_npf_tax);
-                    $employer_contribution_percnt = floatval($setting->employer_contribution);
-                    $setting_icf_amount           = floatval($setting->icf_amount);
-
-                    if ($value->sos != "" && (int)$value->employee_type_id == 3) {
-                        $soc_sec_npf_tax = floatval(($basic * $soc_sec_npf_tax_percnt) / 100);
-                        // Employer contribution is $employer_contribution_percnt of basic salary..
-                        $employer_contribution = floatval(($basic * $employer_contribution_percnt) / 100);
-                        if ($basic > 0) {
-                            $icf_amount = $setting_icf_amount;
-                        }
-                    }
-                    $discount = floatval($discount) + floatval($state_income_tax) + floatval($soc_sec_npf_tax);
-                    $salary_advance = 0.0;
-                    $salary_advance_id = null;
-                    $salary_advance_resp = $this->salary_advance_deduction($emp_id, $request->salary_month);
-                    if ($salary_advance_resp) {
-                        $salary_advance = floatval($salary_advance_resp->amount);
-                        $salary_advance_id = $salary_advance_resp->id;
-                    }
-                    $loan_deduct = 0.0;
-                    $loan_id = null;
-                    $loan_installment_resp = $this->loan_installment_deduction($emp_id);
-                    if ($loan_installment_resp) {
-                        $loan_deduct = floatval($loan_installment_resp->installment);
-                        $loan_id = $loan_installment_resp->id;
-                    }
-                    $discount = floatval($discount) + floatval($loan_deduct) + floatval($salary_advance);
-                    $final_salary = floatval($basic) - floatval($discount) + floatval($transport_allowance) + floatval($total_benefits) ;
-                    $paymentData = array(
-                        'employee_id'                     => $emp_id,
-                        'tin_no'                          => $employee_file->tin_no,
-                        'total_attendance'                => $value->monthly_work_hours, //tagret_hours / days
-                        'total_count'                     => $worked_hours, //weorked_hours / days
-                        'gross'                           => $employee_file->gross_salary,
-                        'basic'                           => $employee_file->basic,
-                        'transport'                       => $employee_file->transport,
-                        'gross_salary'                    => $gross_salary,
-                        'income_tax'                      => $state_income_tax,
-                        'soc_sec_npf_tax'                 => $soc_sec_npf_tax,
-                        'employer_contribution'           => $employer_contribution,
-                        'icf_amount'                      => $icf_amount,
-                        'loan_deduct'                     => $loan_deduct,
-                        'loan_id'                         => $loan_id,
-                        'salary_advance'                  => $salary_advance,
-                        'salary_advanced_id'              => $salary_advance_id,
-                        'total_deduction'                 => $total_deductions,
-                        'net_salary'                      => $net_salary,
-                        'salary_month_year'               => $request->salary_month,
-                        'medical_benefit'                  => floatval($employee_file->medical_benefit),
-                        'family_benefit'                  => floatval($employee_file->family_benefit),
-                        'transportation_benefit'          => floatval($employee_file->transportation_benefit),
-                        'other_benefit'                      => floatval($employee_file->other_benefit),
-                        'normal_working_hrs_month'        => $value->monthly_work_hours,
-                        'actual_working_hrs_month'        => $month_actual_work_hrs,
-                        'hourly_rate_basic'               => $hourly_rate_basic,
-                        'hourly_rate_trasport_allowance'  => $hourly_rate_trasport_allowance,
-                        'basic_salary_pro_rated'             => $basic_salary_pro_rated,
-                        'transport_allowance_pro_rated'   => $transport_allowance_pro_rated,
-                        'basic_transport_allowance'          => $basic_transport_allowance,
-                    );
-                }
-            }
             if ($employees->count() > 0) {
                 $res_arr = [];
                 foreach ($employees as $key => $value) {
@@ -700,7 +552,225 @@ class SalaryGenerateController extends Controller
             return redirect()->route('salary.generate')->with('fail', $e);
         }
     }
+    public function get_holiday_count($start_date, $end_date, $holidays = [])
+    {
+        $month_holidays = Holiday::where(function ($query) use ($start_date, $end_date) {
+            $query->whereBetween('start_date', [$start_date, $end_date])
+                ->orWhereBetween('end_date', [$start_date, $end_date])
+                ->orWhere(function ($subQuery) use ($start_date, $end_date) {
+                    $subQuery->where('start_date', '<', $start_date)
+                        ->where('end_date', '>', $end_date);
+                });
+        })->get();
 
+
+        // Calculate the days from database holidays
+        $total_days = $month_holidays->sum(function ($holiday) use ($start_date, $end_date) {
+            $holiday_start = Carbon::parse($holiday->start_date)->greaterThan($start_date)
+                ? Carbon::parse($holiday->start_date)
+                : $start_date;
+            $holiday_end = Carbon::parse($holiday->end_date)->lessThan($end_date)
+                ? Carbon::parse($holiday->end_date)
+                : $end_date;
+
+            return $holiday_start->diffInDays($holiday_end) + 1;
+        });
+
+        // Parse the $holidays array and calculate days falling in the range
+        $start = Carbon::parse($start_date);
+        $end = Carbon::parse($end_date);
+
+        $holiday_count = 0;
+
+        while ($start->lte($end)) {
+            if (in_array(strtolower($start->format('l')), $holidays)) {
+                $holiday_count++;
+            }
+            $start->addDay();
+        }
+
+        $total_days += $holiday_count;
+
+        return $total_days;
+    }
+
+    public function salaryGenerate(Request $request)
+    {
+        $request->validate([
+            'salary_month' => 'required',
+        ]);
+
+        if (SalarySheetGenerate::where('name', $request->salary_month)->first()) {
+            Toastr::error('Salary already generated for this month :)', 'Error');
+
+            return redirect()->back();
+        }
+        DB::beginTransaction();
+        try {
+            $setting = Application::first();
+            $salary_month = Carbon::parse($request->salary_month);
+
+            $start_date = $startd = $salary_month->firstOfMonth()->format('Y-m-d');
+            $end_date = $edate = $salary_month->lastOfMonth()->format('Y-m-d');
+
+            $holidays = env('DAYS_OFF') ? explode(',', env('DAYS_OFF')) : [];
+
+            $work_from = env('START_WORK_TIME', '08:00:00');
+            $work_to =  env('END_WORK_TIME', '17:30:00');
+            $this_month_holidays = $this->get_holiday_count($start_date, $end_date, $holidays);
+
+            $work_start_time = Carbon::createFromTimeString($work_from);
+            $work_end_time = Carbon::createFromTimeString($work_to);
+
+            $month_work_days = $salary_month->daysInMonth - $this_month_holidays;
+          return  $hours_should_work = ($work_start_time->diffInMinutes($work_end_time) / 60) * $month_work_days;
+
+            $total_days = $salary_month->daysInMonth;
+            $month = $salary_month->month;
+
+
+            $salary_sheet_info = [
+                'name' => $request->salary_month,
+                'generate_date' => Carbon::now()->format('Y-m-d'),
+                'start_date' => $start_date,
+                'end_date' => $end_date,
+                'generate_by_id' => auth()->user()->id,
+            ];
+            $salary_sheet = new SalarySheetGenerate();
+            $salary_sheet->create($salary_sheet_info); //save salary sheet info here
+
+            $employees = Employee::with('employee_files')->where('is_active', 1)->where('is_left', 0)->get();
+            if ($employees->count() > 0) {
+                foreach ($employees as $key => $value) {
+                    $discount = 0;
+                    $final_salary = 0;
+                    $emp_id = $value->id;
+                    $basic = $value->employee_files->basic;
+                    $hour = $basic / $hours_should_work;
+                    $day = $basic / $month_work_days;
+                    $worked_hours = $this->employee_worked_hours($emp_id, $startd, $edate);
+                    $diff_hours = $hours_should_work - $worked_hours;
+                    if (env('OVERTIME')) {
+                        $over_time = $diff_hours > 0 ? $diff_hours : 0;
+                    }else{
+                        $over_time = 0;
+                    }
+                    $discount += $diff_hours * $hour;
+                    $employee_file = $value->employee_files;
+                    if ($employee_file) {
+                        $total_benefits = floatval($employee_file->medical_benefit) + floatval($employee_file->family_benefit) + floatval($employee_file->transportation_benefit) + floatval($employee_file->other_benefit);
+                        $hourly_rate_trasport_allowance = floatval($employee_file->transport / $hours_should_work);
+                        $transport_allowance = $hourly_rate_trasport_allowance * $worked_hours;
+                        $over_transport_allowance = $hourly_rate_trasport_allowance * $over_time;
+                    }
+                    $state_income_tax = 0.0;
+                    if ($employee_file->tin_no != null && (int)$value->employee_type_id == 3) {
+                        $state_income_tax = floatval($this->state_income_tax(floatval($basic) - floatval($discount) + floatval($transport_allowance) + floatval($over_transport_allowance) + floatval($total_benefits)));
+                    }
+                    $soc_sec_npf_tax = 0.0;
+                    $employer_contribution = 0.0;
+                    $icf_amount = 0.0;
+
+                    $soc_sec_npf_tax_percnt = floatval($setting->soc_sec_npf_tax);
+                    $employer_contribution_percnt = floatval($setting->employer_contribution);
+                    $setting_icf_amount           = floatval($setting->icf_amount);
+
+                    if ($value->sos != "" && (int)$value->employee_type_id == 3) {
+                        $soc_sec_npf_tax = floatval(($basic * $soc_sec_npf_tax_percnt) / 100);
+                        // Employer contribution is $employer_contribution_percnt of basic salary..
+                        $employer_contribution = floatval(($basic * $employer_contribution_percnt) / 100);
+                        if ($basic > 0) {
+                            $icf_amount = $setting_icf_amount;
+                        }
+                    }
+                    $discount = floatval($discount) + floatval($state_income_tax) + floatval($soc_sec_npf_tax);
+                    $salary_advance = 0.0;
+                    $salary_advance_id = null;
+                    $salary_advance_resp = $this->salary_advance_deduction($emp_id, $request->salary_month);
+                    if ($salary_advance_resp) {
+                        $salary_advance = floatval($salary_advance_resp->amount);
+                        $salary_advance_id = $salary_advance_resp->id;
+                    }
+                    $loan_deduct = 0.0;
+                    $loan_id = null;
+                    $loan_installment_resp = $this->loan_installment_deduction($emp_id);
+                    if ($loan_installment_resp) {
+                        $loan_deduct = floatval($loan_installment_resp->installment);
+                        $loan_id = $loan_installment_resp->id;
+                    }
+                    $discount = floatval($discount) + floatval($loan_deduct) + floatval($salary_advance);
+                    $final_salary = floatval($basic) - floatval($discount) + floatval($transport_allowance) + floatval($total_benefits);
+                    $gross_salary = floatval($basic) + floatval($transport_allowance) + floatval($total_benefits);
+                    $paymentData = array(
+                        'employee_id'                     => $emp_id,
+                        'tin_no'                          => $employee_file->tin_no,
+                        'total_attendance'                => $worked_hours, //tagret_hours / days
+                        'total_count'                     => $hours_should_work, //weorked_hours / days
+                        'gross'                           => $employee_file->gross_salary,
+                        'basic'                           => $employee_file->basic,
+                        'transport'                       => $employee_file->transport,
+                        'gross_salary'                    => $gross_salary,
+                        'income_tax'                      => $state_income_tax,
+                        'soc_sec_npf_tax'                 => $soc_sec_npf_tax,
+                        'employer_contribution'           => $employer_contribution,
+                        'icf_amount'                      => $icf_amount,
+                        'loan_deduct'                     => $loan_deduct,
+                        'loan_id'                         => $loan_id,
+                        'salary_advance'                  => $salary_advance,
+                        'salary_advanced_id'              => $salary_advance_id,
+                        'total_deduction'                 => $discount,
+                        'net_salary'                      => $final_salary,
+                        'salary_month_year'               => $request->salary_month,
+                        'medical_benefit'                  => floatval($employee_file->medical_benefit),
+                        'family_benefit'                  => floatval($employee_file->family_benefit),
+                        'transportation_benefit'          => floatval($employee_file->transportation_benefit),
+                        'other_benefit'                   => floatval($employee_file->other_benefit),
+                        'normal_working_hrs_month'        => $hours_should_work,
+                        'actual_working_hrs_month'        => $diff_hours,
+                        'hourly_rate_basic'               => $hour,
+                        'hourly_rate_trasport_allowance'  => $hourly_rate_trasport_allowance,
+                        'basic_salary_pro_rated'          => $over_time,
+                        'transport_allowance_pro_rated'   => $over_transport_allowance,
+                        'basic_transport_allowance'       => $employee_file->transport,
+                    );
+                    $res_sal_gen = SalaryGenerate::create($paymentData);
+                    if ($res_sal_gen) {
+                        // Update salary advance afetr applying it to salary generate
+                        if ($salary_advance_resp) {
+                            $sal_adv_data = array(
+                                'release_amount'  => $salary_advance,
+                            );
+                            $salary_adv_paid_resp = $this->update_sal_advance($sal_adv_data, $salary_advance_id);
+                        }
+
+                        // Update loan after applying it to salary generate
+                        if ($loan_installment_resp) {
+
+                            $total_released_amount = 0.0;
+                            $total_released_amount = floatval($loan_installment_resp->released_amount) + $loan_deduct;
+
+                            $total_installment_cleared = 0;
+                            $total_installment_cleared = (int)$loan_installment_resp->installment_cleared + 1;
+
+                            $loan_installment_data = array(
+                                'installment_cleared' => $total_installment_cleared,
+                                'released_amount'    => $total_released_amount,
+                            );
+                            $loan_installmnt_paid_respo = $this->update_loan_installment($loan_installment_data, $loan_id);
+                        }
+                    }
+                }
+            }
+            DB::commit();
+            Toastr::success('Salary Generated successfully :)', 'Success');
+            return redirect()->route('salary.generate')->with('success', 'Salary Generated successfully');
+        } catch (\Exception $e) {
+            return $e;
+            DB::rollback();
+            Toastr::Error('Something Went Wrong :)', 'Error');
+            return redirect()->route('salary.generate')->with('fail', $e);
+        }
+    }
     public function update_loan_installment($data = array(), $id = null)
     {
         return Loan::where('id', $id)->update($data);
