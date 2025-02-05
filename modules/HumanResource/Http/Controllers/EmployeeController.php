@@ -509,7 +509,6 @@ class EmployeeController extends Controller
         $employee_types = EmployeeType::where('is_active', true)->get();
         $duty_types = DutyType::where('is_active', true)->get();
         $genders = Gender::all();
-
         return view('humanresource::employee.edit', [
             'employee' => $employee,
             'bank_info' => $bank_info,
@@ -567,6 +566,7 @@ class EmployeeController extends Controller
             $user = $employee->user;
             $user->user_name = strtolower($request->first_name . ' ' . $request->last_name);
             $user->full_name = strtolower($request->first_name . ' ' . $request->last_name);
+            $user->zk_id = $request->zk_id;
             $user->email = $request->email;
             $user->contact_no = $request->phone;
             $user->save();

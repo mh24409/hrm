@@ -174,6 +174,8 @@
                             <h5 class="mb-3 fw-semi-bold">{{ localize('personal_information') }}:</h5>
                             <div class="row">
                                 <div class="col-md-6">
+                                     @input(['input_name' => 'zk_id', 'required' => false, 'value' => $employee->zk_id])
+
                                     <div class="cust_border form-group mb-3 mx-0 pb-3 row">
                                         <label for="department_id"
                                             class="col-sm-3 col-form-label ps-0">{{ localize('department') }}

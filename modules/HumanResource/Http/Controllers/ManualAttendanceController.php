@@ -758,7 +758,7 @@ class ManualAttendanceController extends Controller
                 $checkIn = $records->first();
                 $checkOut = $records->last();
 
-                $user = DB::table('users')->where('zk_id', $zk_userId)->first();
+                $user = DB::table('employees')->where('zk_id', $zk_userId)->first();
                 if ($user) {
                     $attendance_exist = Attendance::where('employee_id', $user->id)
                         ->whereDate('time', $date)
@@ -841,7 +841,7 @@ class ManualAttendanceController extends Controller
                     $checkIn = $records->first();
                     $checkOut = $records->last();
 
-                    $user = DB::table('users')->where('zk_id', $zk_userId)->first();
+                    $user = DB::table('employees')->where('zk_id', $zk_userId)->first();
                     if ($user) {
                         $attendance_exist = Attendance::where('employee_id', $user->id)
                             ->whereDate('time', $date)
@@ -899,7 +899,7 @@ class ManualAttendanceController extends Controller
                         $checkIn = $records->first();
                         $checkOut = $records->last();
 
-                        $user = DB::table('users')->where('zk_id', $zk_userId)->first();
+                        $user = DB::table('employees')->where('zk_id', $zk_userId)->first();
                         if ($user) {
                             $attendance_exist = Attendance::where('employee_id', $user->id)
                                 ->whereDate('time', $date)
@@ -981,7 +981,7 @@ class ManualAttendanceController extends Controller
                 $date = Carbon::parse($timestamp)->toDateString();
 
                 // Get user details from database
-                $user = DB::table('users')->where('zk_id', $zk_userId)->first();
+                $user = DB::table('employees')->where('zk_id', $zk_userId)->first();
 
                 if ($user) {
                     $formattedLogs[] = [
@@ -1039,7 +1039,7 @@ class ManualAttendanceController extends Controller
     //             $checkIn = $records->first();
     //             $checkOut = $records->last();
 
-    //             $user = DB::table('users')->where('zk_id', $zk_userId)->first();
+    //             $user = DB::table('employees')->where('zk_id', $zk_userId)->first();
 
     //             if ($user) {
     //                 Attendance::create([
