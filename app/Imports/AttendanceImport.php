@@ -40,7 +40,10 @@ class AttendanceImport implements ToModel, WithChunkReading, WithValidation, Ski
         if (is_numeric($row['out_time'])) {
             $row['out_time'] = $this->excelTimeToTimeString($row['out_time']);
         }
-
+        if (is_numeric($row['date'])) {
+            $row['date'] = Carbon::parse(Date::excelToDateTimeObject($row['date']))->format('Y-m-d');
+        }
+        // dd($row);
         try {
             // Insert the in_time attendance record
             Attendance::create([
@@ -73,7 +76,7 @@ class AttendanceImport implements ToModel, WithChunkReading, WithValidation, Ski
     {
         return [
             '*.employee_id' => 'required|numeric', // Validation rule for the first column
-            '*.date' => 'required|date_format:Y-m-d', // Validation rule for the second column
+            // '*.date' => 'required|date_format:Y-m-d', // Validation rule for the second column
             '*.in_time' => 'required', // Validation rule for the third column
             '*.out_time' => 'required', // Validation rule for the fourth column
         ];

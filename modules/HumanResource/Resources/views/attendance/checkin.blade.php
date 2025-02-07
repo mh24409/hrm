@@ -63,7 +63,7 @@
                                             class="checkSingle"></td>
                                     <td>{{ $value->employee_id }}</td>
                                     <td>{{ $value->full_name }}</td>
-                                    <td>{{ $value->position->position_name }}</td>
+                                    <td>{{ isset($value->position->position_name) ? $value->position->position_name : localize('no_position_found') }}</td>
                                     <td><input type="time" class="form-control in_time" name="in_time[]" /></td>
                                     {{-- <td><input type="time" class="form-control out_time" name="out_time[]" /></td> --}}
                                     <td>{{ $date }}</td>

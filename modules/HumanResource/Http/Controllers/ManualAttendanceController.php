@@ -519,6 +519,7 @@ class ManualAttendanceController extends Controller
             Toastr::success(localize('data_imported_successfully'));
             return redirect()->route('attendances.create');
         } catch (\Exception $e) {
+            return $e ;
             Toastr::error(localize('operation_failed' . $e->getMessage()));
             return redirect()->route('attendances.create');
         }

@@ -557,6 +557,7 @@ class EmployeeController extends Controller
                 $filename = time() . rand(10, 1000) . '.' . $request_file->extension();
                 $path = $request_file->storeAs('employee', $filename, 'public');
                 $employee->profile_img_name = $filename;
+                $employee->zk_id = $request->zk_id;
                 $employee->profile_img_location = $path;
             }
 
@@ -566,7 +567,6 @@ class EmployeeController extends Controller
             $user = $employee->user;
             $user->user_name = strtolower($request->first_name . ' ' . $request->last_name);
             $user->full_name = strtolower($request->first_name . ' ' . $request->last_name);
-            $user->zk_id = $request->zk_id;
             $user->email = $request->email;
             $user->contact_no = $request->phone;
             $user->save();

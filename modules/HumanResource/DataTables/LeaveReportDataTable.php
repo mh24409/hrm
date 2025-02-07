@@ -31,7 +31,7 @@ class LeaveReportDataTable extends DataTable
                 return $query?->employee?->department?->department_name;
             })
             ->editColumn('leave_type', function ($query) {
-                return $query?->leaveType->leave_type;
+                return isset($query?->leaveType->leave_type) ? $query?->leaveType->leave_type :localize('none'); ;
             })
             ->editColumn('start_date', function ($query) {
                 return $query->leave_approved_start_date;
