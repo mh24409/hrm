@@ -46,7 +46,7 @@
                     <table class="table table-bordered table-hover">
                         <thead>
                             <tr>
-                                <th>{{ localize('all') }} <input type="checkbox" id="checkAll"></th>
+                                {{-- <th>{{ localize('all') }}</th> --}}
                                 <th>{{ localize('employee_id') }}</th>
                                 <th>{{ localize('name') }}</th>
                                 {{-- <th>{{ localize('designation') }}</th> --}}
@@ -59,8 +59,8 @@
                         <tbody>
                             @foreach ($employees as $key => $value)
                                 <tr>
-                                    <td><input type="checkbox" name="employee_id[]" value="{{ $value->id }}"
-                                            class="checkSingle"></td>
+                                    {{-- <td><input type="checkbox" name="employee_id[]" value="{{ $value->id }}"
+                                            class="checkSingle"></td> --}}
                                     <td>{{ $value->employee_id }}</td>
                                     <td>{{ $value->full_name }}</td>
                                     {{-- <td>{{ isset($value->position->position_name) ? $value->position->position_name : localize('no_position_found') }}</td> --}}
