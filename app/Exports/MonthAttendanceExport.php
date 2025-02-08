@@ -22,6 +22,6 @@ class MonthAttendanceExport implements FromCollection, WithHeadings
 
     public function headings(): array
     {
-        return ["id","uuid" , "name"  , "zk_id" , "timestamp"];
+        return ["id","uuid" , "name"  , "zk_id" , "device_ip" , "timestamp"];
     }
 }

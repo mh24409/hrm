@@ -558,6 +558,7 @@ class EmployeeController extends Controller
                 $path = $request_file->storeAs('employee', $filename, 'public');
                 $employee->profile_img_name = $filename;
                 $employee->zk_id = $request->zk_id;
+                $employee->device_ip = $request->device_ip;
                 $employee->profile_img_location = $path;
             }
 

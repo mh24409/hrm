@@ -31,6 +31,7 @@ class Employee extends Model
     protected $fillable = [
         'user_id',
         'zk_id',
+        'device_ip',
         'card_no',
         'first_name',
         'middle_name',

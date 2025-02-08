@@ -713,6 +713,21 @@ class ManualAttendanceController extends Controller
         })->where('is_active', true)->get(['id', 'first_name', 'middle_name', 'last_name', 'position_id', 'employee_id']);
         return view('humanresource::attendance.checkin', compact('missingAttendance', 'date'));
     }
+    private function getDummyAttendance()
+    {
+        $attendance_data = '[
+            {"uid":1,"id":"1","state":15,"timestamp":"2025-01-08 09:00:00","type":255},
+            {"uid":2,"id":"1","state":15,"timestamp":"2025-01-08 17:30:00","type":255},
+            {"uid":1,"id":"2","state":15,"timestamp":"2025-01-08 09:00:00","type":255},
+            {"uid":2,"id":"2","state":15,"timestamp":"2025-01-08 17:30:00","type":255},
+            {"uid":1,"id":"3","state":15,"timestamp":"2025-01-08 09:00:00","type":255},
+            {"uid":2,"id":"3","state":15,"timestamp":"2025-01-08 17:30:00","type":255},
+            {"uid":1,"id":"4","state":15,"timestamp":"2025-01-08 09:00:00","type":255},
+            {"uid":2,"id":"4","state":15,"timestamp":"2025-01-08 17:30:00","type":255}
+        ]';
+
+        return  json_decode($attendance_data, true);
+    }
     public function checkInStore(Request $request)
     {
         $request->validate([
@@ -743,32 +758,55 @@ class ManualAttendanceController extends Controller
     }
     public function ZkAttendance()
     {
-        $zk = new ZKTeco('192.168.1.201');
-        $zk->connect();
-        $zk->enableDevice();
-        $attendance_data = $zk->getAttendance();
-        // $attendance_data = '[
-        //     {"uid":4,"id":"2","state":15,"timestamp":"2025-02-05 13:24:49","type":255},
-        //     {"uid":5,"id":"2","state":15,"timestamp":"2025-02-05 13:31:59","type":255},
-        //     {"uid":1,"id":"2","state":15,"timestamp":"2024-02-05 13:46:56","type":255},
-        //     {"uid":2,"id":"2","state":15,"timestamp":"2025-02-05 14:44:13","type":255},
-        //     {"uid":3,"id":"2","state":15,"timestamp":"2025-02-05 15:35:01","type":255},
-        //     {"uid":2,"id":"2","state":15,"timestamp":"2025-02-05 20:44:13","type":255},
-        //     {"uid":6,"id":"1","state":1,"timestamp":"2025-02-05 13:32:24","type":255},
-        //     {"uid":7,"id":"3","state":15,"timestamp":"2025-02-05 13:33:58","type":255},
-        //     {"uid":8,"id":"1","state":1,"timestamp":"2025-02-05 13:34:39","type":255},
-        //     {"uid":9,"id":"2","state":15,"timestamp":"2025-02-05 13:36:00","type":255},
-        //     {"uid":10,"id":"16","state":15,"timestamp":"2025-02-05 13:49:53","type":255}
-        // ]';
-        // $attendance_data = json_decode($attendance_data, true);
+        $devices = explode(',', env('DEVICES', ''));
+
+        if (empty($devices)) {
+            return response()->json([
+                'data' => null,
+                'message' => 'No devices found in environment configuration.',
+                'status' => 500
+            ]);
+        }
+
+        $attendance_data = [];
+
+        // Fetch attendance from both devices
+        foreach ($devices as $deviceIp) {
+            // return $deviceIp ;
+            try {
+                $zk = new ZKTeco($deviceIp);
+                $zk->connect();
+                $zk->enableDevice();
+                $device_data = $zk->getAttendance();
+                // $device_data = $this->getDummyAttendance();
+                // Append device IP to each record for unique identification
+                foreach ($device_data as &$record) {
+                    $record['device_ip'] = $deviceIp;
+                }
+
+                $attendance_data = array_merge($attendance_data, $device_data);
+
+                $zk->disableDevice();
+                $zk->disconnect();
+            } catch (\Exception $e) {
+                return response()->json([
+                    'data' => null,
+                    'message' => 'Failed to fetch data from device ' . $deviceIp . ': ' . $e->getMessage(),
+                    'status' => 500
+                ]);
+            }
+        }
+
         $today = Carbon::today()->toDateString();
 
+        // Filter logs for today
         $todayLogs = collect($attendance_data)->filter(function ($log) use ($today) {
             return Carbon::parse($log['timestamp'])->toDateString() === $today;
         });
 
+        // Group logs by (device_ip + zk_id) + date
         $groupedLogs = $todayLogs->groupBy(function ($log) {
-            return $log['id'] . '_' . Carbon::parse($log['timestamp'])->toDateString();
+            return $log['device_ip'] . '_' . $log['id'] . '_' . Carbon::parse($log['timestamp'])->toDateString();
         });
 
         try {
@@ -777,21 +815,27 @@ class ManualAttendanceController extends Controller
             foreach ($groupedLogs as $key => $records) {
                 $records = collect($records)->sortBy('timestamp')->values();
 
-                $zk_userId = explode('_', $key)[0];
-                $date = explode('_', $key)[1];
+                list($deviceIp, $zk_userId, $date) = explode('_', $key);
 
                 $checkIn = $records->first();
                 $checkOut = $records->last();
 
-                $user = DB::table('employees')->where('zk_id', $zk_userId)->first();
+                // Find employee using both zk_id and device_ip
+                $user = DB::table('employees')
+                    ->where('zk_id', $zk_userId)
+                    ->where('device_ip', $deviceIp)
+                    ->first();
+
                 if ($user) {
                     $attendance_exist = Attendance::where('employee_id', $user->id)
                         ->whereDate('time', $date)
                         ->count();
+
                     if ($attendance_exist == 0 || $attendance_exist == 1) {
                         if ($attendance_exist == 1) {
                             Attendance::where('employee_id', $user->id)->whereDate('time', $date)->forceDelete();
                         }
+
                         Attendance::create([
                             'employee_id' => $user->id,
                             'time' => $checkIn['timestamp'],
@@ -807,7 +851,7 @@ class ManualAttendanceController extends Controller
             DB::commit();
             return redirect()->route('attendances.create')->with('success', localize('attendance_save_successfully'));
         } catch (\Throwable $th) {
-            DB::rollback(); // Rollback if there's an error
+            DB::rollback();
             return response()->json([
                 'data' => null,
                 'message' => localize('something_went_wrong') . ' ' . $th->getMessage(),
@@ -817,64 +861,135 @@ class ManualAttendanceController extends Controller
     }
     public function ZkAttendanceByDay(Request $request)
     {
-
-
         $requestDate = $request->date;
-        // $requestDate = '2025-01-05';
         $date = Carbon::parse($requestDate)->toDateString();
         $year = Carbon::now()->format('Y');
         $enterMonth = Carbon::parse($requestDate)->format('m');
         $currentMonth = Carbon::now()->format('m');
+
+        $devices = explode(',', env('DEVICES', ''));
+
+        if (empty($devices)) {
+            return response()->json([
+                'data' => null,
+                'message' => 'No devices found in environment configuration.',
+                'status' => 500
+            ]);
+        }
+
+        $attendance_data = [];
+
         if ($enterMonth == $currentMonth) {
-            $zk = new ZKTeco('192.168.1.201');
-            $zk->connect();
-            $zk->enableDevice();
+            // Fetch attendance from all devices
+            foreach ($devices as  $deviceIp) {
+                try {
+                    $zk = new ZKTeco($deviceIp);
+                    $zk->connect();
+                    $zk->enableDevice();
+                    $device_data = $zk->getAttendance();
+                    // $device_data = $this->getDummyAttendance();
 
-            $attendance_data = $zk->getAttendance();
-            // $attendance_data = '[
-            //     {"uid":1,"id":"2","state":15,"timestamp":"2024-12-24 13:46:56","type":255},
-            //     {"uid":2,"id":"2","state":15,"timestamp":"2025-02-05 14:44:13","type":255},
-            //     {"uid":3,"id":"2","state":15,"timestamp":"2025-02-05 15:35:01","type":255},
-            //     {"uid":2,"id":"2","state":15,"timestamp":"2025-02-05 20:44:13","type":255},
-            //     {"uid":4,"id":"2","state":15,"timestamp":"2025-02-05 13:24:49","type":255},
-            //     {"uid":5,"id":"2","state":15,"timestamp":"2025-02-02 13:31:59","type":255},
-            //     {"uid":6,"id":"1","state":1,"timestamp":"2025-02-02 13:32:24","type":255},
-            //     {"uid":7,"id":"3","state":15,"timestamp":"2025-02-02 13:33:58","type":255},
-            //     {"uid":8,"id":"1","state":1,"timestamp":"2025-02-02 13:34:39","type":255},
-            //     {"uid":9,"id":"2","state":15,"timestamp":"2025-02-02 13:36:00","type":255},
-            //     {"uid":10,"id":"16","state":15,"timestamp":"2025-02-04 13:49:53","type":255}
-            // ]';
+                    // Append device IP to each record for unique identification
+                    foreach ($device_data as &$record) {
+                        $record['device_ip'] = $deviceIp;
+                    }
 
-            // $attendance_data = json_decode($attendance_data, true);
-            $todayLogs = collect($attendance_data)->filter(function ($log) use ($date) {
+                    $attendance_data = array_merge($attendance_data, $device_data);
+
+                    $zk->disableDevice();
+                    $zk->disconnect();
+                } catch (\Exception $e) {
+                    return response()->json([
+                        'data' => null,
+                        'message' => 'Failed to fetch data from device ' . $deviceIp . ': ' . $e->getMessage(),
+                        'status' => 500
+                    ]);
+                }
+            }
+
+            // Filter logs for the requested date
+            $filteredLogs = collect($attendance_data)->filter(function ($log) use ($date) {
                 return Carbon::parse($log['timestamp'])->toDateString() === $date;
             });
 
-            $groupedLogs = $todayLogs->groupBy(function ($log) {
-                return $log['id'] . '_' . Carbon::parse($log['timestamp'])->toDateString();
+            // Group logs by (device_ip + zk_id) + date
+            $groupedLogs = $filteredLogs->groupBy(function ($log) {
+                return $log['device_ip'] . '_' . $log['id'] . '_' . Carbon::parse($log['timestamp'])->toDateString();
             });
 
             try {
                 DB::beginTransaction();
                 Attendance::whereDate('time', $date)->forceDelete();
+
                 foreach ($groupedLogs as $key => $records) {
                     $records = collect($records)->sortBy('timestamp')->values();
-
-                    $zk_userId = explode('_', $key)[0];
-                    $date = explode('_', $key)[1];
+                    list($deviceIp, $zk_userId, $date) = explode('_', $key);
 
                     $checkIn = $records->first();
                     $checkOut = $records->last();
 
-                    $user = DB::table('employees')->where('zk_id', $zk_userId)->first();
+                    // Find employee using both zk_id and device_ip
+                    $user = DB::table('employees')
+                        ->where('zk_id', $zk_userId)
+                        ->where('device_ip', $deviceIp)
+                        ->first();
+
                     if ($user) {
-                        $attendance_exist = Attendance::where('employee_id', $user->id)
-                            ->whereDate('time', $date)
-                            ->count();
-                        if ($attendance_exist == 0 || $attendance_exist == 1) {
-                            if ($attendance_exist == 1) {
-                                Attendance::where('employee_id', $user->id)->whereDate('time', $date)->forceDelete();
-                            }
+                        Attendance::create([
+                            'employee_id' => $user->id,
+                            'time' => $checkIn['timestamp'],
+                        ]);
+                        Attendance::create([
+                            'employee_id' => $user->id,
+                            'time' => $checkOut['timestamp'],
+                        ]);
+                    }
+                }
+
+                DB::commit();
+                return redirect()->route('attendances.create')->with('success', localize('attendance_save_successfully'));
+            } catch (\Throwable $th) {
+                DB::rollback();
+                return response()->json([
+                    'data' => null,
+                    'message' => localize('something_went_wrong') . ' ' . $th->getMessage(),
+                    'status' => 500
+                ]);
+            }
+        } else {
+            // Handle past month attendance from an Excel file
+            $lastMonthName = Carbon::now()->subMonth()->format('F');
+            $fileName = Str::slug($lastMonthName) . '_' . $year . '.xlsx';
+            $filePath = storage_path('zk_attendance/' . $fileName);
+
+            if (file_exists($filePath)) {
+                $attendance_data = Excel::toArray(new \App\Imports\AttendanceImport, $filePath);
+                $filteredLogs = collect($attendance_data[0])->filter(function ($log) use ($date) {
+                    return Carbon::parse($log['timestamp'])->toDateString() === $date;
+                });
+
+                $groupedLogs = $filteredLogs->groupBy(function ($log) {
+                    return $log['device_ip'] . '_' . $log['zk_id'] . '_' . Carbon::parse($log['timestamp'])->toDateString();
+                });
+
+                try {
+                    DB::beginTransaction();
+                    Attendance::whereDate('time', $date)->forceDelete();
+
+                    foreach ($groupedLogs as $key => $records) {
+                        $records = collect($records)->sortBy('timestamp')->values();
+                        list($deviceIp, $zk_userId, $date) = explode('_', $key);
+
+                        $checkIn = $records->first();
+                        $checkOut = $records->last();
+
+                        // Find employee using both zk_id and device_ip
+                        $user = DB::table('employees')
+                            ->where('zk_id', $zk_userId)
+                            ->where('device_ip', $checkIn['device_ip'])
+                            ->first();
+
+                        if ($user) {
                             Attendance::create([
                                 'employee_id' => $user->id,
                                 'time' => $checkIn['timestamp'],
@@ -885,69 +1000,11 @@ class ManualAttendanceController extends Controller
                             ]);
                         }
                     }
-                }
 
-                DB::commit();
-                return redirect()->route('attendances.create')->with('success', localize('attendance_save_successfully'));
-            } catch (\Throwable $th) {
-                DB::rollback(); // Rollback if there's an error
-                return response()->json([
-                    'data' => null,
-                    'message' => localize('something_went_wrong') . ' ' . $th->getMessage(),
-                    'status' => 500
-                ]);
-            }
-        } else {
-            $lastMonthName = Carbon::now()->subMonth()->format('F');
-            $fileName = Str::slug($lastMonthName) . '_' . $year . '.xlsx';
-            $filePath = storage_path('zk_attendance/' . $fileName);
-
-            if (file_exists($filePath)) {
-                $attendance_data = Excel::toArray(new \App\Imports\AttendanceImport, $filePath);
-                $todayLogs = collect($attendance_data[0])->filter(function ($log) use ($date) {
-                    return Carbon::parse($log['timestamp'])->toDateString() === $date;
-                });
-
-                $groupedLogs = $todayLogs->groupBy(function ($log) {
-                    return $log['zk_id'] . '_' . Carbon::parse($log['timestamp'])->toDateString();
-                });
-
-                try {
-                    DB::beginTransaction();
-                    Attendance::whereDate('time', $date)->forceDelete();
-                    foreach ($groupedLogs as $key => $records) {
-                        $records = collect($records)->sortBy('timestamp')->values();
-
-                        $zk_userId = explode('_', $key)[0];
-                        $date = explode('_', $key)[1];
-
-                        $checkIn = $records->first();
-                        $checkOut = $records->last();
-
-                        $user = DB::table('employees')->where('zk_id', $zk_userId)->first();
-                        if ($user) {
-                            $attendance_exist = Attendance::where('employee_id', $user->id)
-                                ->whereDate('time', $date)
-                                ->count();
-                            if ($attendance_exist == 0 || $attendance_exist == 1) {
-                                if ($attendance_exist == 1) {
-                                    Attendance::where('employee_id', $user->id)->whereDate('time', $date)->forceDelete();
-                                }
-                                Attendance::create([
-                                    'employee_id' => $user->id,
-                                    'time' => $checkIn['timestamp'],
-                                ]);
-                                Attendance::create([
-                                    'employee_id' => $user->id,
-                                    'time' => $checkOut['timestamp'],
-                                ]);
-                            }
-                        }
-                    }
                     DB::commit();
                     return redirect()->route('attendances.create')->with('success', localize('attendance_save_successfully'));
                 } catch (\Throwable $th) {
-                    DB::rollback(); // Rollback if there's an error
+                    DB::rollback();
                     return response()->json([
                         'data' => null,
                         'message' => localize('something_went_wrong') . ' ' . $th->getMessage(),
@@ -963,29 +1020,52 @@ class ManualAttendanceController extends Controller
             }
         }
     }
+
+
     // run every first day of month after 12 am before start work
     public function ZkMonthlyAttendance()
     {
-        $zk = new ZKTeco('192.168.1.201');
-        $zk->connect();
-        $zk->enableDevice();
+        // Define ZKTeco device IPs
+        $devices = explode(',', env('DEVICES', ''));
 
-        $attendance_data = $zk->getAttendance();
-        // $attendance_data = '[
-        //     {"uid":1,"id":"2","state":15,"timestamp":"2024-12-24 13:46:56","type":255},
-        //     {"uid":2,"id":"2","state":15,"timestamp":"2025-01-29 14:44:13","type":255},
-        //     {"uid":2,"id":"2","state":15,"timestamp":"2025-01-29 20:44:13","type":255},
-        //     {"uid":3,"id":"2","state":15,"timestamp":"2025-01-29 15:35:01","type":255},
-        //     {"uid":4,"id":"2","state":15,"timestamp":"2025-02-02 13:24:49","type":255},
-        //     {"uid":5,"id":"2","state":15,"timestamp":"2025-02-02 13:31:59","type":255},
-        //     {"uid":6,"id":"1","state":1,"timestamp":"2025-02-02 13:32:24","type":255},
-        //     {"uid":7,"id":"3","state":15,"timestamp":"2025-02-02 13:33:58","type":255},
-        //     {"uid":8,"id":"1","state":1,"timestamp":"2025-02-02 13:34:39","type":255},
-        //     {"uid":9,"id":"2","state":15,"timestamp":"2025-02-02 13:36:00","type":255},
-        //     {"uid":10,"id":"16","state":15,"timestamp":"2025-02-02 13:49:53","type":255}
-        // ]';
+    if (empty($devices)) {
+        return response()->json([
+            'data' => null,
+            'message' => 'No devices found in environment configuration.',
+            'status' => 500
+        ]);
+    }
 
-        // $attendance_data = json_decode($attendance_data, true);
+        $attendance_data = [];
+
+        // Fetch attendance from all devices
+        foreach ($devices as $deviceIp) {
+            try {
+                $zk = new ZKTeco($deviceIp);
+                $zk->connect();
+                $zk->enableDevice();
+                $device_data = $zk->getAttendance();
+                // $device_data = $this->getDummyAttendance(); // Dummy data for testing
+
+                // Append device IP to each record
+                foreach ($device_data as &$record) {
+                    $record['device_ip'] = $deviceIp;
+                }
+
+                $attendance_data = array_merge($attendance_data, $device_data);
+
+                // Clear attendance after fetching
+                $zk->clearAttendance();
+                $zk->disableDevice();
+                $zk->disconnect();
+            } catch (\Exception $e) {
+                return response()->json([
+                    'data' => null,
+                    'message' => 'Failed to fetch data from device ' . $deviceIp . ': ' . $e->getMessage(),
+                    'status' => 500
+                ]);
+            }
+        }
 
         // Get last month details
         $year = Carbon::now()->subMonth()->format('Y');
@@ -1003,26 +1083,27 @@ class ManualAttendanceController extends Controller
             foreach ($lastMonthLogs as $record) {
                 $zk_userId = $record['id'];
                 $timestamp = $record['timestamp'];
-                $date = Carbon::parse($timestamp)->toDateString();
+                $deviceIp = $record['device_ip'];
 
-                // Get user details from database
+                // Get user details using zk_id
                 $user = DB::table('employees')->where('zk_id', $zk_userId)->first();
 
                 if ($user) {
+                    // return $user ;
                     $formattedLogs[] = [
                         'id' => $user->id,
                         'uuid' => $user->uuid,
-                        'name' => $user->full_name,
+                        'name' => $user->first_name . ' ' . $user->middle_name . ' ' . $user->last_name,
                         'zk_id' => $user->zk_id,
+                        'device_ip' => $deviceIp, // ✅ Ensure device IP is included
                         'timestamp' => $timestamp,
                     ];
                 }
             }
-            // return $formattedLogs ;
-            // Store the Excel file
+
+            // ✅ Save ONE Excel file with all data
             $fileName = Str::slug($lastMonthName) . '_' . $year . '.xlsx';
             Excel::store(new MonthAttendanceExport($formattedLogs), $fileName, 'zk_attendance');
-            $zk->clearAttendance();
 
             return redirect()->route('attendances.create')->with('success', localize('data_save'));
         } catch (\Throwable $th) {
@@ -1034,6 +1115,8 @@ class ManualAttendanceController extends Controller
             ]);
         }
     }
+
+
     // public function ZkAttendanceByDate(Request $request)
     // {
     //     $zk = new ZKTeco('192.168.1.201');

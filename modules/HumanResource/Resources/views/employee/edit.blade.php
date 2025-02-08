@@ -175,6 +175,7 @@
                             <div class="row">
                                 <div class="col-md-6">
                                      @input(['input_name' => 'zk_id', 'required' => false, 'value' => $employee->zk_id])
+                                     @input(['input_name' => 'device_ip', 'required' => false, 'value' => $employee->device_ip])
 
                                     <div class="cust_border form-group mb-3 mx-0 pb-3 row">
                                         <label for="department_id"
