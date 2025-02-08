@@ -623,7 +623,7 @@ class SalaryGenerateController extends Controller
             $work_end_time = Carbon::createFromTimeString($work_to);
 
             $month_work_days = $salary_month->daysInMonth - $this_month_holidays;
-          return  $hours_should_work = ($work_start_time->diffInMinutes($work_end_time) / 60) * $month_work_days;
+            $hours_should_work = ($work_start_time->diffInMinutes($work_end_time) / 60) * $month_work_days;
 
             $total_days = $salary_month->daysInMonth;
             $month = $salary_month->month;
