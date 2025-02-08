@@ -34,7 +34,31 @@ class ManualAttendanceController extends Controller
         $this->middleware('permission:create_monthly_attendance', ['only' => ['monthlyCreate', 'monthlyStore']]);
         $this->middleware('permission:create_missing_attendance', ['only' => ['missingAttendance', 'missingAttendanceStore']]);
     }
+    public function index(Request $request)
+    {
+        $date = $request->date ?? Carbon::now()->toDateString();
 
+        $employees = Employee::with(['position:id,position_name', 'attendances' => function ($query) use ($date) {
+            $query->whereDate('time', $date);
+        }])
+            ->where('is_active', true)
+            ->get(['id', 'first_name', 'middle_name', 'last_name', 'position_id', 'employee_id']);
+
+        // Process attendance times for check-in and check-out
+        $employees = $employees->map(function ($employee) {
+            $attendances = $employee->attendances->sortBy('time'); // Sort by time ascending
+
+            $employee->check_in = $attendances->first()?->time ? Carbon::parse($attendances->first()->time)->format('H:i:s') : null;
+            $employee->check_out = $attendances->last()?->time ? Carbon::parse($attendances->last()->time)->format('H:i:s') : null;
+
+            unset($employee->attendances); // Remove raw attendances if not needed
+
+            return $employee;
+        });
+
+        // return response()->json($employees);
+        return view('humanresource::attendance.index', compact('employees', 'date'));
+    }
     /**
      * Show the form for creating a new resource.
      *
@@ -519,7 +543,7 @@ class ManualAttendanceController extends Controller
             Toastr::success(localize('data_imported_successfully'));
             return redirect()->route('attendances.create');
         } catch (\Exception $e) {
-            return $e ;
+            return $e;
             Toastr::error(localize('operation_failed' . $e->getMessage()));
             return redirect()->route('attendances.create');
         }
