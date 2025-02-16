@@ -1665,4 +1665,5 @@
   'award_form' => 'Award form',
   'select_sub_department' => 'Select sub department',
   'file' => 'File',
+  'please_fill_all_required_fields' => 'Please fill all required fields',
 );

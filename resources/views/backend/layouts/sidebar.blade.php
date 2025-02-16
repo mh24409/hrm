@@ -70,6 +70,10 @@
                                             href="{{ route('attendances.missingAttendance') }}">{{ localize('missing_attendance') }}</a>
                                     </li>
                                 @endcan
+                                <li class="{{ request()->routeIs('attendances.editAttendance') ? 'mm-active' : '' }}">
+                                    <a class="dropdown-item"
+                                        href="{{ route('attendances.editAttendance') }}">{{ localize('update_attendance') }}</a>
+                                </li>
                             @endcan
                         </ul>
                     </li>

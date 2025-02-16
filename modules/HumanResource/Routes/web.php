@@ -241,6 +241,8 @@ Route::group(['prefix' => 'hr', 'middleware' => ['auth']], function () {
             Route::post('/attendances/monthly/store', 'monthlyStore')->name('monthlyStore');
             Route::get('/attendances/missing-attendance', 'missingAttendance')->name('missingAttendance');
             Route::post('/attendances/missing-attendance', 'missingAttendanceStore')->name('missingAttendance.store');
+            Route::get('/attendances/edit-attendance', 'editAttendance')->name('editAttendance');
+            Route::post('/attendances/edit-attendance', 'editAttendanceStore')->name('editAttendance.store');
             Route::post('/attendances/monthly-attendance-bulk-import', 'monthlyAttendanceBulkImport')->name('monthly_attendance_bulk_import');
             Route::get('/attendances/{attendance}', 'show')->name('show');
             Route::get('/attendances/edit/{attendance}', 'edit')->name('edit');

@@ -23,6 +23,10 @@
                         href="{{ route('attendances.missingAttendance') }}">{{ localize('missing_attendance') }}</a>
                 </li>
             @endcan
+            <li class="nav-item">
+                <a class="nav-link mt-0 {{ request()->routeIs('attendances.editAttendance') ? 'active' : '' }}"
+                    href="{{ route('attendances.editAttendance') }}">{{ localize('update_attendance') }}</a>
+            </li>
         </ul>
     </div>
 </div>

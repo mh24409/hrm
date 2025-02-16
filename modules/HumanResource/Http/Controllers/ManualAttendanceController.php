@@ -700,6 +700,73 @@ class ManualAttendanceController extends Controller
             return response()->json(['data' => null, 'message' => localize('something_went_wrong') . $th->getMessage(), 'status' => 500]);
         }
     }
+    public function editAttendance(Request $request)
+    {
+        $date = $request->date;
+        if (!$date) {
+            $date = Carbon::now()->format('Y-m-d');
+        } else {
+            $date = Carbon::parse($date)->format('Y-m-d');
+        }
+         $attendance = Employee::with(['position:id,position_name'])->with('attendances', function ($query) use ($date) {
+            $query->whereDate('time', $date);
+        })->whereHas('attendances', function ($query) use ($date) {
+            $query->whereDate('time', $date);
+        })->where('is_active', true)->get(['id', 'first_name', 'middle_name', 'last_name', 'position_id', 'employee_id']);
+        return view('humanresource::attendance.editAttendance', compact('attendance', 'date'));
+    }
+    public function editAttendanceStore(Request $request)
+    {
+
+        $request->validate([
+            'employee_id' => 'required|array',
+            'employee_id.*' => 'required|integer',
+            'in_time' => 'required|array',
+            'in_time.*' => 'required|date_format:H:i',
+            'out_time' => 'required|array',
+            'out_time.*' => 'required|date_format:H:i',
+            'date' => 'required|date',
+        ]);
+        try {
+            DB::beginTransaction();
+            $in_time = $request->in_time;
+            $out_time = $request->out_time;
+            $employee_id = $request->employee_id;
+            $date = Carbon::parse($request->date);
+
+            foreach ($employee_id as $key => $value) {
+                $inDateTime = $date->copy()->modify($in_time[$key]);
+                $outDateTime = $date->copy()->modify($out_time[$key]);
+                 $checkin = Attendance::where('employee_id', $value)->whereDate('time', $date)->get();
+                if ($checkin[0]) {
+                    $checkin[0]->update([
+                        'time' => $inDateTime
+                    ]) ;
+                } else {
+                    Attendance::create([
+                       'employee_id' => $value,
+                       'time' => $inDateTime,
+                   ]);
+                }
+                if ($checkin[1]) {
+                    $checkin[1]->update([
+                        'time' => $outDateTime
+                    ]) ;
+                } else {
+                       Attendance::create([
+                        'employee_id' => $value,
+                        'time' => $outDateTime,
+                    ]);
+                }
+            }
+
+            DB::commit();
+            return response()->json(['data' => null, 'message' => localize('attendance_save_successfully'), 'status' => 200]);
+        } catch (\Throwable $th) {
+            DB::rollback();
+            return response()->json(['data' => null, 'message' => localize('something_went_wrong') . $th->getMessage(), 'status' => 500]);
+        }
+    }
     public function checkIn(Request $request)
     {
         $date = $request->date;
