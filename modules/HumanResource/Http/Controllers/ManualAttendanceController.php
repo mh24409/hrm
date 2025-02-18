@@ -11,7 +11,6 @@ use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 use Modules\HumanResource\Entities\Attendance;
 use Modules\HumanResource\Entities\Employee;
@@ -824,19 +823,6 @@ class ManualAttendanceController extends Controller
             return response()->json(['data' => null, 'message' => localize('something_went_wrong') . $th->getMessage(), 'status' => 500]);
         }
     }
-    private function isDeviceReachable($ip, $port)
-{
-    $sock = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
-    if (!$sock) {
-        return false;
-    }
-
-    socket_set_option($sock, SOL_SOCKET, SO_RCVTIMEO, ["sec" => 2, "usec" => 0]); // Timeout: 2 seconds
-    $result = @socket_connect($sock, $ip, $port);
-    socket_close($sock);
-
-    return $result;
-}
     public function ZkAttendance()
     {
         $devices = explode(',', env('DEVICES', ''));
@@ -853,12 +839,6 @@ class ManualAttendanceController extends Controller
 
         // Fetch attendance from both devices
         foreach ($devices as $deviceIp) {
-            $deviceIp = trim($deviceIp);
-                if (!$this->isDeviceReachable($deviceIp, 4370)) {
-                    // Log unreachable device but continue with others
-                    Log::warning("Device at $deviceIp is unreachable.");
-                    continue;
-                }
             // return $deviceIp ;
             try {
                 $zk = new ZKTeco($deviceIp);
@@ -907,7 +887,6 @@ class ManualAttendanceController extends Controller
                 $checkIn = $records->first();
                 $checkOut = $records->last();
 
-                // Find employee using both zk_id and device_ip
                 $user = DB::table('employees')
                     ->where('zk_id', $zk_userId)
                     ->where('device_ip', $deviceIp)
