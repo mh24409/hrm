@@ -11,6 +11,7 @@ use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 use Modules\HumanResource\Entities\Attendance;
 use Modules\HumanResource\Entities\Employee;
@@ -839,6 +840,12 @@ class ManualAttendanceController extends Controller
 
         // Fetch attendance from both devices
         foreach ($devices as $deviceIp) {
+            $deviceIp = trim($deviceIp);
+                if (!$this->isDeviceReachable($deviceIp, 4370)) {
+                    // Log unreachable device but continue with others
+                    Log::warning("Device at $deviceIp is unreachable.");
+                    continue;
+                }
             // return $deviceIp ;
             try {
                 $zk = new ZKTeco($deviceIp);
