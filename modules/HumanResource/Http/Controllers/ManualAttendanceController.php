@@ -824,6 +824,19 @@ class ManualAttendanceController extends Controller
             return response()->json(['data' => null, 'message' => localize('something_went_wrong') . $th->getMessage(), 'status' => 500]);
         }
     }
+    private function isDeviceReachable($ip, $port)
+{
+    $sock = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
+    if (!$sock) {
+        return false;
+    }
+
+    socket_set_option($sock, SOL_SOCKET, SO_RCVTIMEO, ["sec" => 2, "usec" => 0]); // Timeout: 2 seconds
+    $result = @socket_connect($sock, $ip, $port);
+    socket_close($sock);
+
+    return $result;
+}
     public function ZkAttendance()
     {
         $devices = explode(',', env('DEVICES', ''));
