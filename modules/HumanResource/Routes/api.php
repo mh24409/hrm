@@ -16,3 +16,4 @@ use Illuminate\Http\Request;
 Route::middleware('auth:api')->get('/humanresource', function (Request $request) {
     return $request->user();
 });
+

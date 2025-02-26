@@ -708,7 +708,7 @@ class ManualAttendanceController extends Controller
         } else {
             $date = Carbon::parse($date)->format('Y-m-d');
         }
-         $attendance = Employee::with(['position:id,position_name'])->with('attendances', function ($query) use ($date) {
+        $attendance = Employee::with(['position:id,position_name'])->with('attendances', function ($query) use ($date) {
             $query->whereDate('time', $date);
         })->whereHas('attendances', function ($query) use ($date) {
             $query->whereDate('time', $date);
@@ -737,23 +737,23 @@ class ManualAttendanceController extends Controller
             foreach ($employee_id as $key => $value) {
                 $inDateTime = $date->copy()->modify($in_time[$key]);
                 $outDateTime = $date->copy()->modify($out_time[$key]);
-                 $checkin = Attendance::where('employee_id', $value)->whereDate('time', $date)->get();
+                $checkin = Attendance::where('employee_id', $value)->whereDate('time', $date)->get();
                 if ($checkin[0]) {
                     $checkin[0]->update([
                         'time' => $inDateTime
-                    ]) ;
+                    ]);
                 } else {
                     Attendance::create([
-                       'employee_id' => $value,
-                       'time' => $inDateTime,
-                   ]);
+                        'employee_id' => $value,
+                        'time' => $inDateTime,
+                    ]);
                 }
                 if ($checkin[1]) {
                     $checkin[1]->update([
                         'time' => $outDateTime
-                    ]) ;
+                    ]);
                 } else {
-                       Attendance::create([
+                    Attendance::create([
                         'employee_id' => $value,
                         'time' => $outDateTime,
                     ]);
@@ -1094,13 +1094,13 @@ class ManualAttendanceController extends Controller
         // Define ZKTeco device IPs
         $devices = explode(',', env('DEVICES', ''));
 
-    if (empty($devices)) {
-        return response()->json([
-            'data' => null,
-            'message' => 'No devices found in environment configuration.',
-            'status' => 500
-        ]);
-    }
+        if (empty($devices)) {
+            return response()->json([
+                'data' => null,
+                'message' => 'No devices found in environment configuration.',
+                'status' => 500
+            ]);
+        }
 
         $attendance_data = [];
 
@@ -1183,66 +1183,6 @@ class ManualAttendanceController extends Controller
     }
 
 
-    // public function ZkAttendanceByDate(Request $request)
-    // {
-    //     $zk = new ZKTeco('192.168.1.201');
-    //     $zk->connect();
-    //     $zk->enableDevice();
-
-    //     $attendance_data = $zk->getAttendance();
-
-    //     $today = Carbon::parse($request->date)->toDateString();
-
-    //     $todayLogs = collect($attendance_data)->filter(function ($log) use ($today) {
-    //         return Carbon::parse($log['timestamp'])->toDateString() === $today;
-    //     });
-
-    //     $groupedLogs = $todayLogs->groupBy(function ($log) {
-    //         return $log['id'] . '_' . Carbon::parse($log['timestamp'])->toDateString();
-    //     });
-
-    //     try {
-    //         DB::beginTransaction();
-
-    //         foreach ($groupedLogs as $key => $records) {
-    //             $records = collect($records)->sortBy('timestamp')->values();
-
-    //             $zk_userId = explode('_', $key)[0];
-    //             $date = explode('_', $key)[1];
-
-    //             $checkIn = $records->first();
-    //             $checkOut = $records->last();
-
-    //             $user = DB::table('employees')->where('zk_id', $zk_userId)->first();
-
-    //             if ($user) {
-    //                 Attendance::create([
-    //                     'employee_id' => $user->id,
-    //                     'time' => $checkIn['timestamp'],
-    //                 ]);
-    //                 Attendance::create([
-    //                     'employee_id' => $user->id,
-    //                     'time' => $checkOut['timestamp'],
-    //                 ]);
-    //             }
-    //         }
-
-    //         DB::commit();
-
-    //         return response()->json([
-    //             'data' => null,
-    //             'message' => localize('attendance_save_successfully'),
-    //             'status' => 200
-    //         ]);
-    //     } catch (\Throwable $th) {
-    //         DB::rollback(); // Rollback if there's an error
-    //         return response()->json([
-    //             'data' => null,
-    //             'message' => localize('something_went_wrong') . ' ' . $th->getMessage(),
-    //             'status' => 500
-    //         ]);
-    //     }
-    // }
     public function checkOut(Request $request)
     {
         $date = $request->date;
