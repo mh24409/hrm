@@ -53,7 +53,6 @@
                                 <th>{{ localize('in_time') }}</th>
                                 <th>{{ localize('out_time') }}</th>
                                 <th>{{ localize('date') }}</th>
-                                <th>{{ localize('status') }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -79,7 +78,6 @@
                                     </td>
 
                                     <td>{{ $date }}</td>
-                                    <td>{{ localize('absent') }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
